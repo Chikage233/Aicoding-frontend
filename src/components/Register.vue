@@ -10,8 +10,7 @@
 
         <el-form-item label="身份">
           <el-radio-group v-model="form.role">
-            <el-radio label="student">学生</el-radio>
-            <el-radio label="teacher">教师</el-radio>
+            <el-radio label="user">用户</el-radio>
             <el-radio label="admin">管理员</el-radio>
           </el-radio-group>
         </el-form-item>
@@ -51,7 +50,7 @@ import request from '@/utils/request'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const form = reactive({ email: '', code: '', password: '', confirmPassword: '', role: 'student' })
+const form = reactive({ email: '', code: '', password: '', confirmPassword: '', role: 'user' })
 const registerForm = ref(null)
 const sending = ref(false)
 const count = ref(60)

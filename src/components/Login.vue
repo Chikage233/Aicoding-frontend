@@ -14,8 +14,7 @@
 
         <el-form-item label="身份">
           <el-radio-group v-model="form.role">
-            <el-radio label="student">学生</el-radio>
-            <el-radio label="teacher">教师</el-radio>
+            <el-radio label="user">用户</el-radio>
             <el-radio label="admin">管理员</el-radio>
           </el-radio-group>
         </el-form-item>
@@ -40,7 +39,7 @@ import { useRouter } from 'vue-router'
 import request from '@/utils/request'
 
 const router = useRouter()
-const form = reactive({ username: '', password: '', role: 'student' })
+const form = reactive({ username: '', password: '', role: 'user' })
 const loginForm = ref(null)
 
 const validatePassword = (rule, value, callback) => {
