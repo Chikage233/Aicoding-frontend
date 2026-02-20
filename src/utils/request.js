@@ -29,12 +29,12 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response) => {
     const res = response.data
-    // 适配 Django 接口：假设 code=200 为成功（可按后端实际调整）
-    if (res.code !== 200) {
+      // 适配 Django 接口：假设 code=200 为成功；同时兼容 JWT 登录直接返回 { access, refresh }
+      if (res.code === 200 || res.access || res.token) {
+        return res
+      }
       ElMessage.error(res.msg || '请求失败')
       return Promise.reject(res)
-    }
-    return res
   },
   (error) => {
     ElMessage.error(error.message || '服务器错误')

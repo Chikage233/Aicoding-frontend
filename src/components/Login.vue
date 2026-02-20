@@ -63,13 +63,15 @@ async function onLogin() {
   loginForm.value.validate(async (valid) => {
     if (!valid) return
     try {
-      const res = await request.post('/auth/login', {
+      const res = await request.post('/auth/jwt/login/', {
         username: form.username,
         password: form.password,
         role: form.role
       })
-      const token = res.data?.token || res.token
-      if (token) localStorage.setItem('token', token)
+      const access = res.data?.access || res.access || (res.data && res.data.token) || res.token
+      const refresh = res.data?.refresh || res.refresh
+      if (access) localStorage.setItem('token', access)
+      if (refresh) localStorage.setItem('refresh_token', refresh)
       ElMessage.success(res.msg || '登录成功')
       router.push('/')
     } catch (err) {
