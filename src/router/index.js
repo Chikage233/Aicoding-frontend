@@ -5,6 +5,7 @@ import Login from '@/components/Login.vue'
 import Register from '@/components/Register.vue'
 import MainPage from '@/components/MainPage.vue'
 import AdminPage from '@/components/AdminPage.vue'
+import ProfilePage from '@/components/ProfilePage.vue'
 
 const routes = [
   {
@@ -30,6 +31,11 @@ const routes = [
     path: '/admin',
     name: 'AdminPage',
     component: AdminPage
+  },
+  {
+    path: '/profile',
+    name: 'ProfilePage',
+    component: ProfilePage
   }
 ]
 

@@ -1,3 +1,14 @@
+    goProfile() {
+      // 添加错误处理和调试信息
+      try {
+        this.$router.push('/profile').catch(err => {
+          console.error('路由跳转失败:', err);
+        });
+        this.showUserMenu = false;
+      } catch (error) {
+        console.error('goProfile 方法执行出错:', error);
+      }
+    },
 
 <template>
   <div class="main-page">
@@ -11,8 +22,8 @@
           <span class="username">{{ user.username }}</span>
         </div>
         <div v-if="showUserMenu" class="user-menu">
-          <div class="user-menu-item">个人中心</div>
-          <div class="user-menu-item">退出登录</div>
+          <div class="user-menu-item" @click="goProfile">个人中心</div>
+          <div class="user-menu-item" @click="logout">退出登录</div>
         </div>
       </div>
     </nav>
@@ -25,6 +36,7 @@
 
 <script>
 import request from '@/utils/request';
+import { ElMessageBox } from 'element-plus';
 export default {
   name: 'MainPage',
   data() {
@@ -57,12 +69,25 @@ export default {
     async fetchUserInfo() {
       try {
         const res = await request.get('/auth/jwt/me/');
+        console.log('用户信息接口返回：', res);
         // 假设返回 { username, avatar, ... }
-        this.user.username = res.username || '未登录';
-        this.user.avatar = res.avatar || 'https://i.pravatar.cc/40?img=3';
+        const userInfo = res.data && res.data.user ? res.data.user : {};
+        this.user.username = userInfo.username || '未登录';
+        this.user.avatar = userInfo.avatar || 'https://i.pravatar.cc/40?img=3';
       } catch (e) {
         this.user.username = '未登录';
         this.user.avatar = 'https://i.pravatar.cc/40?img=3';
+      }
+    },
+    goProfile() {
+      // 添加错误处理和调试信息
+      try {
+        this.$router.push('/profile').catch(err => {
+          console.error('路由跳转失败:', err);
+        });
+        this.showUserMenu = false;
+      } catch (error) {
+        console.error('goProfile 方法执行出错:', error);
       }
     },
     toggleUserMenu() {
@@ -74,6 +99,29 @@ export default {
     onSuggestionClick(item) {
       this.searchQuery = item;
       this.showSuggestions = false;
+    },
+    async logout() {
+      try {
+        await ElMessageBox.confirm(
+          '确定要退出登录吗？',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        );
+      } catch {
+        // 用户取消
+        return;
+      }
+      try {
+        await request.post('/auth/jwt/logout/');
+      } catch (e) {
+        // 可忽略错误，保证本地登出
+      }
+      localStorage.removeItem('token');
+      this.$router.push('/login');
     },
   },
   mounted() {
