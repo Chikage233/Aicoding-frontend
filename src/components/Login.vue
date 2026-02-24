@@ -44,8 +44,8 @@ const loginForm = ref(null)
 
 const validatePassword = (rule, value, callback) => {
   if (!value) return callback(new Error('请输入密码'))
-  // 密码至少8位，且包含字母和数字
-  const re = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/
+  // 密码至少8位，且包含字母和数字，可含符号
+  const re = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
   if (!re.test(value)) return callback(new Error('密码至少8位，需包含字母和数字'))
   callback()
 }
@@ -64,16 +64,19 @@ async function onLogin() {
     if (!valid) return
     try {
       const res = await request.post('/auth/jwt/login/', {
-        username: form.username,
+        email: form.username,
         password: form.password,
-        role: form.role
       })
       const access = res.data?.access || res.access || (res.data && res.data.token) || res.token
       const refresh = res.data?.refresh || res.refresh
       if (access) localStorage.setItem('token', access)
       if (refresh) localStorage.setItem('refresh_token', refresh)
       ElMessage.success(res.msg || '登录成功')
-      router.push('/')
+      if (form.role === 'admin') {
+        router.push('/admin')
+      } else {
+        router.push('/main')
+      }
     } catch (err) {
       console.error('登录失败', err)
     }
