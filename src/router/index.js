@@ -6,6 +6,7 @@ import Register from '@/components/Register.vue'
 import MainPage from '@/components/MainPage.vue'
 import AdminPage from '@/components/AdminPage.vue'
 import ProfilePage from '@/components/ProfilePage.vue'
+import ProblemDetail from '@/components/ProblemDetail.vue'
 
 const routes = [
   {
@@ -36,6 +37,12 @@ const routes = [
     path: '/profile',
     name: 'ProfilePage',
     component: ProfilePage
+  },
+  {
+    path: '/leetcode/problems/:problemId/',
+    name: 'ProblemDetail',
+    component: ProblemDetail,
+    props: true
   }
 ]
 
