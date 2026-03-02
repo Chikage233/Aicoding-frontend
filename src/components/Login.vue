@@ -12,13 +12,6 @@
           <el-input v-model="form.password" placeholder="请输入密码" show-password type="password" />
         </el-form-item>
 
-        <el-form-item label="身份">
-          <el-radio-group v-model="form.role">
-            <el-radio label="user">用户</el-radio>
-            <el-radio label="admin">管理员</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
         <el-form-item>
           <el-button type="primary" @click="onLogin" style="width:100%">登录</el-button>
         </el-form-item>
@@ -39,7 +32,7 @@ import { useRouter } from 'vue-router'
 import request from '@/utils/request'
 
 const router = useRouter()
-const form = reactive({ username: '', password: '', role: 'user' })
+const form = reactive({ username: '', password: '' })
 const loginForm = ref(null)
 
 const validatePassword = (rule, value, callback) => {
@@ -58,27 +51,65 @@ const rules = {
   password: [{ validator: validatePassword, trigger: 'blur' }]
 }
 
+// 获取当前用户信息
+async function fetchUserInfo(token) {
+  try {
+    const response = await request.get('/auth/jwt/me/', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const userData = response.data?.data?.user || response.data?.user || response.data;
+    if (userData) {
+      // 根据后端返回的字段判断管理员权限
+      const isAdmin = userData.is_staff || userData.is_admin || userData.role === 'admin';
+      localStorage.setItem('is_admin', isAdmin ? 'true' : 'false');
+      localStorage.setItem('user_info', JSON.stringify(userData));
+      return isAdmin;
+    }
+    return false;
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    localStorage.setItem('is_admin', 'false');
+    return false;
+  }
+}
+
 async function onLogin() {
   if (!loginForm.value) return
   loginForm.value.validate(async (valid) => {
     if (!valid) return
     try {
+      // 修复：使用正确的字段名 username 而不是 email
       const res = await request.post('/auth/jwt/login/', {
-        email: form.username,
+        username: form.username,  // ✅ 修正：使用 username 字段
         password: form.password,
       })
-      const access = res.data?.access || res.access || (res.data && res.data.token) || res.token
-      const refresh = res.data?.refresh || res.refresh
+      
+      // 处理响应数据 - 根据后端实际返回格式
+      const responseData = res.data?.data || res.data || res;
+      const access = responseData.access;
+      const refresh = responseData.refresh;
+      
       if (access) localStorage.setItem('token', access)
       if (refresh) localStorage.setItem('refresh_token', refresh)
-      ElMessage.success(res.msg || '登录成功')
-      if (form.role === 'admin') {
+      
+      // 获取用户信息并确定角色
+      const isAdmin = await fetchUserInfo(access);
+      
+      ElMessage.success('登录成功')
+      
+      // 根据实际角色重定向
+      if (isAdmin) {
         router.push('/admin')
       } else {
         router.push('/main')
       }
     } catch (err) {
       console.error('登录失败', err)
+      const errorMessage = err.response?.data?.detail || 
+                          err.response?.data?.message || 
+                          err.message || 
+                          '登录失败，请检查账号密码';
+      ElMessage.error(errorMessage)
     }
   })
 }

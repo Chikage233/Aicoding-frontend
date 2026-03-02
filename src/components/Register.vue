@@ -8,12 +8,15 @@
           <el-input v-model="form.email" placeholder="请输入邮箱" clearable />
         </el-form-item>
 
+        <!-- 删除身份选择部分 -->
+        <!-- 
         <el-form-item label="身份">
           <el-radio-group v-model="form.role">
             <el-radio label="user">用户</el-radio>
             <el-radio label="admin">管理员</el-radio>
           </el-radio-group>
         </el-form-item>
+        -->
 
         <el-form-item prop="code" label="验证码">
           <div class="code-row">
@@ -31,7 +34,7 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" style="width:100%" @click="onRegister">注册</el-button>
+          <el-button type="100%" @click="onRegister">注册</el-button>
         </el-form-item>
       </el-form>
 
@@ -50,7 +53,8 @@ import request from '@/utils/request'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const form = reactive({ email: '', code: '', password: '', confirmPassword: '', role: 'user' })
+// 移除role字段，只保留必要的注册字段
+const form = reactive({ email: '', code: '', password: '', confirmPassword: '' })
 const registerForm = ref(null)
 const sending = ref(false)
 const count = ref(60)
@@ -125,11 +129,12 @@ async function onRegister() {
     if (!valid) return
     try {
       // 示例接口：根据后端实际路径修改，如 '/auth/register'
+      // 移除role参数，后端应默认创建普通用户
       const res = await request.post('/auth/register', {
         email: form.email,
         code: form.code,
-        password: form.password,
-        role: form.role
+        password: form.password
+        // role: form.role // 删除这行
       })
       ElMessage.success(res.msg || '注册成功')
       const token = res.data?.token || res.token

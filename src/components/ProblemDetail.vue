@@ -1,44 +1,56 @@
 <template>
   <div class="problem-detail">
-    <div class="problem-header">
-      <div class="header-top">
-        <div class="header-flex">
-          <button class="back-button" @click="$router.push('/main')">
-            ← 返回主页面
+    <div class="left-side">
+      <!-- 导航栏 -->
+      <div class="problem-navigation">
+        <button class="nav-button back-button" @click="goBackToMain">
+          ← 返回主页面
+        </button>
+        <div class="nav-buttons">
+          <button 
+            class="nav-button prev-button" 
+            @click="goToPreviousProblem"
+            :disabled="isFirstProblem"
+          >
+            上一道
           </button>
-          <h1 class="problem-title">{{ problem.title }}</h1>
+          <button 
+            class="nav-button next-button" 
+            @click="goToNextProblem"
+            :disabled="isLastProblem"
+          >
+            下一道
+          </button>
         </div>
       </div>
-      <div class="problem-info">
-        <span :class="'difficulty-' + problem.difficulty">{{ problem.difficulty }}</span>
-        <span class="acceptance-rate">通过率: {{ problem.acceptance_rate }}%</span>
-        <span class="problem-id">ID: {{ problem.problem_id }}</span>
-        <span class="problem-slug">Slug: {{ problem.title_slug }}</span>
+      
+      <!-- 题目内容区域 -->
+      <div class="problem-content-wrapper">
+        <h1 class="problem-title">{{ problem.problem_id ? problem.problem_id + '. ' : '' }}{{ problem.title }}</h1>
+        <div class="problem-info">
+          <span :class="'difficulty-' + getDifficultyText(problem.difficulty)">{{ getDifficultyText(problem.difficulty) }}</span>
+          <span class="problem-slug">Slug: {{ problem.title_slug }}</span>
+          <div v-if="problem.tags && problem.tags.length" class="problem-tags-inline">
+            <span
+              v-for="tag in problem.tags"
+              :key="tag"
+              class="tag"
+            >
+              {{ tag }}
+            </span>
+          </div>
+        </div>
+        <div v-html="problem.content"></div>
       </div>
     </div>
-
-    <div class="problem-content">
-      <div class="problem-description" v-html="problem.content"></div>
-      
-      <div class="problem-tags" v-if="problem.tags && problem.tags.length">
-        <h3>标签:</h3>
-        <el-tag 
-          v-for="tag in problem.tags" 
-          :key="tag" 
-          class="tag"
-          type="info"
-          size="small"
-        >
-          {{ tag }}
-        </el-tag>
-      </div>
+    <div class="right-side">
+      <!-- 右侧留空，用于后续扩展 -->
     </div>
   </div>
 </template>
 
 <script>
 import request from '@/utils/request';
-import { ElTag } from 'element-plus';
 
 export default {
   name: 'ProblemDetail',
@@ -48,54 +60,127 @@ export default {
       required: true
     }
   },
-  components: {
-    ElTag
-  },
   data() {
     return {
       problem: {
         problem_id: null,
         title: '',
-        title_slug: '',
-        difficulty: '',
-        is_premium: false,
         content: '',
-        acceptance_rate: 0,
-        tags: [],
-        url: ''
-      }
+        difficulty: '',
+        title_slug: '',
+        tags: []
+      },
+      problemList: [], // 存储题目列表
+      currentIndex: -1 // 当前题目在列表中的索引
     };
+  },
+  computed: {
+    isFirstProblem() {
+      return this.currentIndex <= 0;
+    },
+    isLastProblem() {
+      return this.currentIndex >= this.problemList.length - 1;
+    }
   },
   async mounted() {
     await this.fetchProblemDetail();
+    await this.fetchProblemList();
   },
   methods: {
     async fetchProblemDetail() {
       try {
         const response = await request.get(`/leetcode/problems/${this.problemId}/`);
         this.problem = response.data.problem || response.data;
-        
-        // 确保难度字段格式正确
-        if (this.problem.difficulty === 'easy' || this.problem.difficulty === 1) {
-          this.problem.difficulty = '简单';
-        } else if (this.problem.difficulty === 'medium' || this.problem.difficulty === 2) {
-          this.problem.difficulty = '中等';
-        } else if (this.problem.difficulty === 'hard' || this.problem.difficulty === 3) {
-          this.problem.difficulty = '困难';
-        }
       } catch (error) {
         console.error('获取题目详情失败:', error);
-        // 可以在这里添加错误处理，比如显示错误信息或者重定向回主页面
       }
+    },
+    async fetchProblemList() {
+      try {
+        // 获取题目列表，根据项目规范，API可能直接返回数组
+        const response = await request.get('/leetcode/problems/');
+        // 处理不同的API响应格式
+        this.problemList = Array.isArray(response.data) ? response.data : 
+                         (response.data.problems || response.data.results || []);
+        
+        // 找到当前题目的索引，注意类型转换（problemId可能是数字，API返回的可能是字符串）
+        this.currentIndex = this.problemList.findIndex(p => 
+          Number(p.problem_id) === Number(this.problemId)
+        );
+        
+        // 调试信息
+        console.log('题目列表长度:', this.problemList.length);
+        console.log('当前题目ID:', this.problemId, '当前索引:', this.currentIndex);
+      } catch (error) {
+        console.error('获取题目列表失败:', error);
+      }
+    },
+    goBackToMain() {
+      this.$router.push('/main');
+    },
+    goToPreviousProblem() {
+      if (this.currentIndex > 0) {
+        const prevProblem = this.problemList[this.currentIndex - 1];
+        if (prevProblem && prevProblem.problem_id) {
+          try {
+            this.$router.push({
+              name: 'ProblemDetail',
+              params: { problemId: prevProblem.problem_id }
+            }).catch(err => {
+              console.warn('路由跳转被阻止:', err);
+            });
+          } catch (error) {
+            console.error('跳转到上一道题失败:', error);
+          }
+        }
+      }
+    },
+    goToNextProblem() {
+      if (this.currentIndex < this.problemList.length - 1) {
+        const nextProblem = this.problemList[this.currentIndex + 1];
+        if (nextProblem && nextProblem.problem_id) {
+          try {
+            this.$router.push({
+              name: 'ProblemDetail', 
+              params: { problemId: nextProblem.problem_id }
+            }).catch(err => {
+              console.warn('路由跳转被阻止:', err);
+            });
+          } catch (error) {
+            console.error('跳转到下一道题失败:', error);
+          }
+        }
+      }
+    },
+    getDifficultyText(difficulty) {
+      if (typeof difficulty === 'number') {
+        if (difficulty === 1) return '简单';
+        if (difficulty === 2) return '中等';
+        if (difficulty === 3) return '困难';
+      }
+      if (typeof difficulty === 'string') {
+        if (difficulty === 'easy') return '简单';
+        if (difficulty === 'medium') return '中等';
+        if (difficulty === 'hard') return '困难';
+      }
+      return difficulty || '';
     }
   },
+  // 监听路由参数变化，当problemId改变时重新获取数据
   watch: {
-    // 如果problemId发生变化，则重新获取题目详情
     problemId: {
       async handler(newId) {
+        console.log('problemId changed to:', newId);
         await this.fetchProblemDetail();
+        // 如果题目列表已经加载，重新确定当前索引
+        if (this.problemList && this.problemList.length > 0) {
+          this.currentIndex = this.problemList.findIndex(p => 
+            Number(p.problem_id) === Number(newId)
+          );
+          console.log('Updated current index:', this.currentIndex);
+        }
       },
-      immediate: true
+      immediate: false
     }
   }
 };
@@ -103,30 +188,47 @@ export default {
 
 <style scoped>
 .problem-detail {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 30px;
-  background: #fff;
-  min-height: 100vh;
-}
-
-.problem-header {
-  border-bottom: 1px solid #eee;
-  padding-bottom: 20px;
-  margin-bottom: 30px;
-}
-
-.header-top {
-  margin-bottom: 15px;
-}
-
-.header-flex {
   display: flex;
-  align-items: center;
-  gap: 15px;
+  min-height: 100vh;
+  background: #fff;
+  height: 100vh;
+  width: 100%;
 }
 
-.back-button {
+.left-side {
+  background: #fff;
+  width: 50%;
+  overflow-y: auto;
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-side {
+  background-color: #f8f9fa;
+  width: 50%;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 导航栏样式 */
+.problem-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 30px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  z-index: 10;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.nav-button {
   background-color: #409eff;
   color: white;
   border: none;
@@ -134,25 +236,51 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  flex-shrink: 0; /* 防止按钮在空间不足时被压缩 */
-  z-index: 10; /* 确保按钮层级足够高 */
+  transition: background-color 0.2s;
+  flex-shrink: 0;
 }
 
-.back-button:hover {
+.nav-button:hover:not(:disabled) {
   background-color: #2a6bd1;
 }
 
+.nav-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.back-button {
+  background-color: #606266;
+}
+
+.back-button:hover:not(:disabled) {
+  background-color: #4a4c4f;
+}
+
+/* 题目内容区域 */
+.problem-content-wrapper {
+  padding: 30px;
+  max-width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .problem-title {
-  font-size: 24px;
-  margin: 0;
-  color: #333;
-  flex: 1; /* 标题占据剩余空间 */
+  font-size: 2em;
+  font-weight: bold;
+  text-align: left;
+  margin-bottom: 16px;
 }
 
 .problem-info {
   display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
   flex-wrap: wrap;
-  gap: 20px;
   align-items: center;
 }
 
@@ -177,105 +305,62 @@ export default {
   color: #e30f0f;
 }
 
-.acceptance-rate {
+.problem-slug {
   background-color: #f0f0f0;
   color: #666;
 }
 
-.problem-id {
-  background-color: #e6f7ff;
-  color: #1890ff;
-}
-
-.problem-slug {
-  background-color: #f9f0ff;
-  color: #722ed1;
-}
-
-.problem-content {
-  margin-bottom: 30px;
-}
-
-.problem-description {
-  line-height: 1.6;
-  font-size: 16px;
-  margin-bottom: 30px;
-}
-
-.problem-description :deep(p) {
-  margin-bottom: 1em;
-  line-height: 1.7;
-}
-
-.problem-description :deep(h2), 
-.problem-description :deep(h3) {
-  margin-top: 1.5em;
-  margin-bottom: 1em;
-}
-
-.problem-description :deep(pre) {
-  background-color: #f5f5f5;
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 1em 0;
-}
-
-.problem-description :deep(code) {
-  font-family: monospace;
-  background-color: #f5f5f5;
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-.problem-description :deep(blockquote) {
-  border-left: 4px solid #ddd;
-  padding-left: 16px;
-  color: #666;
-  margin: 1em 0;
-}
-
-.problem-tags {
-  margin: 25px 0;
-}
-
-.problem-tags h3 {
-  margin-bottom: 10px;
-  color: #333;
+.problem-tags-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 26px;
 }
 
 .tag {
-  margin-right: 8px;
-  margin-bottom: 8px;
+  background-color: #e6f7ff;
+  color: #1890ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
   .problem-detail {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .left-side, .right-side {
+    width: 100%;
+    height: auto;
+  }
+  
+  .problem-navigation {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 15px;
+  }
+  
+  .nav-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .problem-content-wrapper {
     padding: 15px;
   }
   
-  .problem-header {
-    padding-bottom: 15px;
-  }
-  
   .problem-title {
-    font-size: 20px;
+    font-size: 1.5em;
   }
   
   .problem-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
-  }
-  
-  .back-button {
-    font-size: 13px;
-    padding: 6px 12px;
-  }
-  
-  .header-flex {
-    flex-direction: row;
-    align-items: flex-start;
   }
 }
 </style>

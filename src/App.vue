@@ -28,10 +28,11 @@ body {
 
 #app {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  /* 移除居中对齐，让子组件可以占满整个页面 */
+  /* display: flex; */
+  /* align-items: center; */
+  /* justify-content: center; */
+  /* padding: 24px; */
 }
 
 /* keep other app-level styles light; specific pages style themselves */

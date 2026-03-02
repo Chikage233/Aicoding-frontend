@@ -18,10 +18,11 @@ a:hover {
   color: #535bf2;
 }
 
+/* 移除flex布局和居中对齐 */
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  /* display: flex; */
+  /* place-items: center; */
   min-width: 320px;
   min-height: 100vh;
 }
@@ -55,9 +56,9 @@ button:focus-visible {
 }
 
 #app {
-  max-width: 1280px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 2rem;
+  /* padding: 100%; */ /* 这个padding设置明显有问题，应该移除 */
   text-align: center;
 }
 

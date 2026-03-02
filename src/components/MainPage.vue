@@ -253,7 +253,11 @@ export default {
         await request.post('/auth/jwt/logout/');
       } catch (e) {
       }
+      // 清除所有用户相关的本地存储
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('is_admin');
+      localStorage.removeItem('user_info');
       this.$router.push('/login');
     },
   },
