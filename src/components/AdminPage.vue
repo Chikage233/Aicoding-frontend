@@ -4,6 +4,8 @@
       <h1>管理员控制台</h1>
       <p v-if="hasPermission">欢迎，管理员！</p>
       <p v-else>您没有访问管理员页面的权限。</p>
+      <!-- 退出登录按钮 -->
+      <button class="logout-button" @click="handleLogout">退出管理员登录</button>
     </div>
     
     <!-- 用户活跃度统计 -->
@@ -66,66 +68,6 @@
         <div class="stat-card">
           <div class="stat-value">{{ problemStats.avg_acceptance_rate }}%</div>
           <div class="stat-label">平均通过率</div>
-        </div>
-      </div>
-      
-      <!-- 题目难度分布图表 -->
-      <div class="chart-section">
-        <h3>题目难度分布可视化</h3>
-        <div class="chart-row">
-          <div class="chart-container">
-            <h4>题目数量分布</h4>
-            <div class="bar-chart difficulty-chart">
-              <div class="bar-item">
-                <div class="bar difficulty-easy" 
-                     :style="{ height: getBarHeight(problemStats.easy_count, problemStats.total_problems) + 'px' }">
-                </div>
-                <div class="bar-label">简单</div>
-                <div class="bar-value">{{ problemStats.easy_count }}</div>
-              </div>
-              <div class="bar-item">
-                <div class="bar difficulty-medium" 
-                     :style="{ height: getBarHeight(problemStats.medium_count, problemStats.total_problems) + 'px' }">
-                </div>
-                <div class="bar-label">中等</div>
-                <div class="bar-value">{{ problemStats.medium_count }}</div>
-              </div>
-              <div class="bar-item">
-                <div class="bar difficulty-hard" 
-                     :style="{ height: getBarHeight(problemStats.hard_count, problemStats.total_problems) + 'px' }">
-                </div>
-                <div class="bar-label">困难</div>
-                <div class="bar-value">{{ problemStats.hard_count }}</div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="chart-container">
-            <h4>完成率对比</h4>
-            <div class="bar-chart completion-chart">
-              <div class="bar-item">
-                <div class="bar difficulty-easy" 
-                     :style="{ height: Math.max(4, getCompletionRate(problemStats.easy_solved, problemStats.easy_count)) + 'px' }">
-                </div>
-                <div class="bar-label">简单</div>
-                <div class="bar-value">{{ getCompletionRate(problemStats.easy_solved, problemStats.easy_count) }}%</div>
-              </div>
-              <div class="bar-item">
-                <div class="bar difficulty-medium" 
-                     :style="{ height: Math.max(4, getCompletionRate(problemStats.medium_solved, problemStats.medium_count)) + 'px' }">
-                </div>
-                <div class="bar-label">中等</div>
-                <div class="bar-value">{{ getCompletionRate(problemStats.medium_solved, problemStats.medium_count) }}%</div>
-              </div>
-              <div class="bar-item">
-                <div class="bar difficulty-hard" 
-                     :style="{ height: Math.max(4, getCompletionRate(problemStats.hard_solved, problemStats.hard_count)) + 'px' }">
-                </div>
-                <div class="bar-label">困难</div>
-                <div class="bar-value">{{ getCompletionRate(problemStats.hard_solved, problemStats.hard_count) }}%</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -202,66 +144,6 @@
             </tr>
           </tbody>
         </table>
-        
-        <!-- 用户活跃度趋势图表 -->
-        <div class="chart-section" style="margin-top: 30px;">
-          <h3>用户活跃度趋势可视化</h3>
-          <div class="chart-row">
-            <div class="chart-container">
-              <h4>用户注册趋势</h4>
-              <div class="bar-chart user-trend-chart">
-                <div class="bar-item">
-                  <div class="bar user-today" 
-                       :style="{ height: getTrendHeight(userStats.today_registrations, Math.max(userStats.today_registrations, userStats.week_registrations, userStats.month_registrations)) + 'px' }">
-                  </div>
-                  <div class="bar-label">今日</div>
-                  <div class="bar-value">{{ userStats.today_registrations }}</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar user-week" 
-                       :style="{ height: getTrendHeight(userStats.week_registrations, Math.max(userStats.today_registrations, userStats.week_registrations, userStats.month_registrations)) + 'px' }">
-                  </div>
-                  <div class="bar-label">本周</div>
-                  <div class="bar-value">{{ userStats.week_registrations }}</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar user-month" 
-                       :style="{ height: getTrendHeight(userStats.month_registrations, Math.max(userStats.today_registrations, userStats.week_registrations, userStats.month_registrations)) + 'px' }">
-                  </div>
-                  <div class="bar-label">本月</div>
-                  <div class="bar-value">{{ userStats.month_registrations }}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="chart-container">
-              <h4>登录活跃度</h4>
-              <div class="bar-chart login-trend-chart">
-                <div class="bar-item">
-                  <div class="bar login-today" 
-                       :style="{ height: getTrendHeight(userStats.today_logins, Math.max(userStats.today_logins, userStats.week_logins, userStats.month_logins)) + 'px' }">
-                  </div>
-                  <div class="bar-label">今日</div>
-                  <div class="bar-value">{{ userStats.today_logins }}</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar login-week" 
-                       :style="{ height: getTrendHeight(userStats.week_logins, Math.max(userStats.today_logins, userStats.week_logins, userStats.month_logins)) + 'px' }">
-                  </div>
-                  <div class="bar-label">本周</div>
-                  <div class="bar-value">{{ userStats.week_logins }}</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar login-month" 
-                       :style="{ height: getTrendHeight(userStats.month_logins, Math.max(userStats.today_logins, userStats.week_logins, userStats.month_logins)) + 'px' }">
-                  </div>
-                  <div class="bar-label">本月</div>
-                  <div class="bar-value">{{ userStats.month_logins }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -382,18 +264,16 @@ export default {
       return Math.round((solved / total) * 100);
     };
     
-    // 计算条形图高度（基于最大值的比例）
-    const getBarHeight = (value, maxValue) => {
-      if (maxValue === 0) return 0;
-      // 最大高度设为80px，根据比例计算实际高度
-      return Math.max(4, (value / maxValue) * 80);
-    };
-    
-    // 计算趋势图高度
-    const getTrendHeight = (value, maxValue) => {
-      if (maxValue === 0) return 0;
-      // 最大高度设为80px，根据比例计算实际高度
-      return Math.max(4, (value / maxValue) * 80);
+    // 退出登录处理
+    const handleLogout = () => {
+      // 清除所有与用户权限相关的本地存储状态
+      localStorage.removeItem('token');
+      localStorage.removeItem('is_admin');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('username');
+      
+      // 重定向到登录页面
+      router.push('/login');
     };
     
     // 获取用户统计信息
@@ -587,8 +467,7 @@ export default {
       userStats,
       problemStats,
       getCompletionRate,
-      getBarHeight,
-      getTrendHeight,
+      handleLogout,
       // 用户管理相关
       showUserManagement,
       toggleUserManagement,
@@ -600,7 +479,9 @@ export default {
       currentUserId,
       paginatedUsers,
       formatDate,
-      fetchUsers
+      fetchUsers,
+      fetchUserStats,
+      fetchProblemStats
     };
   }
 };
@@ -617,12 +498,31 @@ export default {
   margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .admin-header h1 {
   font-size: 24px;
   color: #333;
   margin-bottom: 8px;
+}
+
+/* 退出登录按钮样式 */
+.logout-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: #c82333;
 }
 
 .stats-section {
@@ -716,136 +616,6 @@ export default {
   border-left: 4px solid #dc3545;
 }
 
-/* 图表区域 */
-.chart-section {
-  margin-top: 30px;
-  padding: 25px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  border: 1px solid #dee2e6;
-}
-
-.chart-section h3 {
-  font-size: 20px;
-  color: #333;
-  margin-bottom: 25px;
-  text-align: center;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #e9ecef;
-}
-
-.chart-row {
-  display: flex;
-  gap: 30px;
-  justify-content: space-between;
-}
-
-.chart-container {
-  flex: 1;
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.chart-container h4 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 20px;
-  text-align: center;
-  font-weight: 600;
-}
-
-.bar-chart {
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  height: 150px;
-  padding: 20px 0 10px 0;
-  background: #fafafa;
-  border-radius: 6px;
-  margin-bottom: 15px;
-  position: relative;
-}
-
-.bar-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 70px;
-}
-
-.bar {
-  width: 45px;
-  border-radius: 6px 6px 0 0;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 2;
-}
-
-.bar:hover {
-  transform: scaleY(1.08);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  z-index: 3;
-}
-
-/* 难度颜色 */
-.bar.difficulty-easy {
-  background: linear-gradient(to top, #28a745, #4ade80);
-}
-
-.bar.difficulty-medium {
-  background: linear-gradient(to top, #ffc107, #fbbf24);
-}
-
-.bar.difficulty-hard {
-  background: linear-gradient(to top, #dc3545, #f87171);
-}
-
-/* 用户趋势颜色 */
-.bar.user-today {
-  background: linear-gradient(to top, #007bff, #3b82f6);
-}
-
-.bar.user-week {
-  background: linear-gradient(to top, #6c757d, #9ca3af);
-}
-
-.bar.user-month {
-  background: linear-gradient(to top, #28a745, #4ade80);
-}
-
-/* 登录趋势颜色 */
-.bar.login-today {
-  background: linear-gradient(to top, #dc3545, #f87171);
-}
-
-.bar.login-week {
-  background: linear-gradient(to top, #fd7e14, #f97316);
-}
-
-.bar.login-month {
-  background: linear-gradient(to top, #28a745, #4ade80);
-}
-
-.bar-label {
-  font-size: 13px;
-  color: #555;
-  margin-top: 12px;
-  text-align: center;
-  font-weight: 500;
-  z-index: 1;
-}
-
-.bar-value {
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-  margin-top: 6px;
-  text-align: center;
-  z-index: 1;
-}
-
 .detailed-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -905,21 +675,14 @@ export default {
     grid-template-columns: 1fr;
   }
   
-  .chart-row {
+  .admin-header {
     flex-direction: column;
-    gap: 25px;
+    align-items: flex-start;
+    gap: 10px;
   }
   
-  .bar-chart {
-    height: 180px;
-  }
-  
-  .bar-item {
-    width: 80px;
-  }
-  
-  .bar {
-    width: 50px;
+  .logout-button {
+    align-self: flex-end;
   }
 }
 
@@ -934,48 +697,6 @@ export default {
   
   .stat-value {
     font-size: 20px;
-  }
-  
-  .chart-section {
-    padding: 20px;
-    margin-top: 20px;
-  }
-  
-  .chart-section h3 {
-    font-size: 18px;
-    margin-bottom: 20px;
-  }
-  
-  .chart-container {
-    padding: 15px;
-  }
-  
-  .chart-container h4 {
-    font-size: 14px;
-    margin-bottom: 15px;
-  }
-  
-  .bar-chart {
-    height: 200px;
-    padding: 25px 0 15px 0;
-  }
-  
-  .bar-item {
-    width: 70px;
-  }
-  
-  .bar {
-    width: 45px;
-  }
-  
-  .bar-label {
-    font-size: 12px;
-    margin-top: 10px;
-  }
-  
-  .bar-value {
-    font-size: 13px;
-    margin-top: 5px;
   }
 }
 </style>

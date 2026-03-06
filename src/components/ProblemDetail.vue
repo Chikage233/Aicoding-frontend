@@ -44,16 +44,21 @@
       </div>
     </div>
     <div class="right-side">
-      <!-- 右侧留空，用于后续扩展 -->
+      <!-- 代码编辑器 -->
+      <CodeEditor :problem-id="problemId" />
     </div>
   </div>
 </template>
 
 <script>
 import request from '@/utils/request';
+import CodeEditor from '@/components/CodeEditor.vue';
 
 export default {
   name: 'ProblemDetail',
+  components: {
+    CodeEditor
+  },
   props: {
     problemId: {
       type: Number,

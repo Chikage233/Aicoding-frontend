@@ -7,17 +7,6 @@
         <el-form-item prop="email" label="邮箱">
           <el-input v-model="form.email" placeholder="请输入邮箱" clearable />
         </el-form-item>
-
-        <!-- 删除身份选择部分 -->
-        <!-- 
-        <el-form-item label="身份">
-          <el-radio-group v-model="form.role">
-            <el-radio label="user">用户</el-radio>
-            <el-radio label="admin">管理员</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        -->
-
         <el-form-item prop="code" label="验证码">
           <div class="code-row">
             <el-input v-model="form.code" placeholder="请输入验证码" clearable />
@@ -34,7 +23,7 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="100%" @click="onRegister">注册</el-button>
+          <el-button type="primary" @click="onRegister">注册</el-button>
         </el-form-item>
       </el-form>
 
@@ -106,8 +95,8 @@ async function sendCode() {
     return
   }
   try {
-    // 示例接口：根据后端实际路径修改，如 '/auth/send-code' 或 '/send_email_code'
-    await request.post('/auth/send-code', { email: form.email })
+    // 使用正确的后端接口路径
+    await request.post('/auth/send-verification-code/', { email: form.email })
     sending.value = true
     count.value = 60
     timer = setInterval(() => {
@@ -128,13 +117,17 @@ async function onRegister() {
   registerForm.value.validate(async (valid) => {
     if (!valid) return
     try {
-      // 示例接口：根据后端实际路径修改，如 '/auth/register'
-      // 移除role参数，后端应默认创建普通用户
-      const res = await request.post('/auth/register', {
+      // 验证验证码
+      await request.post('/auth/verify-code/', {
+        email: form.email,
+        code: form.code
+      })
+      
+      // 注册用户
+      const res = await request.post('/auth/register-with-code/', {
         email: form.email,
         code: form.code,
         password: form.password
-        // role: form.role // 删除这行
       })
       ElMessage.success(res.msg || '注册成功')
       const token = res.data?.token || res.token

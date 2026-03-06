@@ -5,6 +5,16 @@
       <div class="header-actions">
         <el-button @click="goBack" type="primary">返回控制台</el-button>
         <el-button @click="openAddProblemDialog" type="success" icon="Plus">添加题目</el-button>
+        <!-- 批量删除按钮 -->
+        <el-button 
+          @click="batchDeleteProblems" 
+          type="danger" 
+          :disabled="selectedProblems.length === 0"
+          icon="Delete"
+          v-if="selectedProblems.length > 0"
+        >
+          批量删除 ({{ selectedProblems.length }})
+        </el-button>
       </div>
     </div>
     
@@ -56,7 +66,10 @@
         style="width: 100%"
         border
         stripe
+        @selection-change="handleSelectionChange"
       >
+        <!-- 批量选择复选框列 -->
+        <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="problem_id" label="编号" width="80" sortable></el-table-column>
         <el-table-column prop="title" label="题目名称" min-width="200">
           <template #default="scope">
@@ -203,6 +216,9 @@ export default {
     const currentPage = ref(1);
     const pageSize = ref(15);
     
+    // 批量选择相关
+    const selectedProblems = ref([]);
+    
     // 对话框相关
     const dialogVisible = ref(false);
     const isEditing = ref(false);
@@ -303,6 +319,11 @@ export default {
     // 处理分页
     const handlePageChange = (page) => {
       currentPage.value = page;
+    };
+    
+    // 处理批量选择变化
+    const handleSelectionChange = (selection) => {
+      selectedProblems.value = selection;
     };
     
     // 获取题目列表
@@ -425,6 +446,48 @@ export default {
       }
     };
     
+    // 批量删除题目
+    const batchDeleteProblems = async () => {
+      if (selectedProblems.value.length === 0) return;
+      
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除选中的 ${selectedProblems.value.length} 个题目吗？此操作不可恢复。`,
+          '确认批量删除',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        );
+        
+        // 获取要删除的题目ID列表
+        const problemIdsToDelete = selectedProblems.value.map(p => p.problem_id);
+        
+        // 并行发送删除请求
+        const deletePromises = problemIdsToDelete.map(id => 
+          request.delete(`/leetcode/problems/${id}/`)
+        );
+        
+        await Promise.all(deletePromises);
+        
+        // 从本地列表中移除已删除的题目
+        problems.value = problems.value.filter(p => 
+          !problemIdsToDelete.includes(p.problem_id)
+        );
+        
+        // 清空选中状态
+        selectedProblems.value = [];
+        
+        ElMessage.success(`成功删除 ${problemIdsToDelete.length} 个题目`);
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('批量删除题目失败:', error);
+          ElMessage.error('批量删除题目失败，请重试');
+        }
+      }
+    };
+    
     // 保存题目
     const saveProblem = async () => {
       if (!problemForm.value) return;
@@ -498,6 +561,7 @@ export default {
       difficultyFilter,
       currentPage,
       pageSize,
+      selectedProblems,
       
       // 计算属性
       filteredProblems,
@@ -521,10 +585,12 @@ export default {
       goBack,
       handleSearch,
       handlePageChange,
+      handleSelectionChange,
       openAddProblemDialog,
       editProblem,
       closeDialog,
       deleteProblem,
+      batchDeleteProblems,
       saveProblem,
       
       // 计算属性
@@ -630,6 +696,7 @@ export default {
   .header-actions {
     width: 100%;
     justify-content: flex-end;
+    flex-wrap: wrap;
   }
   
   .search-section {
