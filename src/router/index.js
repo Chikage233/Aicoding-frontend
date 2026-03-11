@@ -9,6 +9,7 @@ import ProfilePage from '@/components/ProfilePage.vue'
 import ProblemDetail from '@/components/ProblemDetail.vue'
 import UserManagement from '@/components/UserManagement.vue'
 import ProblemManagement from '@/components/ProblemManagement.vue'
+import AIChat from '@/components/AIChat.vue'
 
 const routes = [
   {
@@ -58,6 +59,11 @@ const routes = [
     name: 'ProblemDetail',
     component: ProblemDetail,
     props: true
+  },
+  {
+    path: '/ai-chat',
+    name: 'AIChat',
+    component: AIChat
   }
 ]
 

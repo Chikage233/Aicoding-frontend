@@ -5,6 +5,10 @@
         <span class="system-name">编程 AI 助教</span>
       </div>
       <div class="navbar-right">
+        <button @click="goToAIChat" class="ai-chat-button">
+          <span class="icon-message">💬</span>
+          AI 助手
+        </button>
         <div class="user-center" @click="toggleUserMenu">
           <img class="avatar" :src="user.avatar" alt="avatar" />
           <span class="username">{{ user.username }}</span>
@@ -172,12 +176,18 @@ export default {
   methods: {
     async fetchUserInfo() {
       try {
-        const res = await request.get('/auth/jwt/me/');
+        // 修复：添加 /api 前缀
+        const res = await request.get('/api/auth/jwt/me/');
         console.log('用户信息接口返回：', res);
         const userInfo = res.data && res.data.user ? res.data.user : {};
         this.user.username = userInfo.username || '未登录';
         this.user.avatar = userInfo.avatar || 'https://i.pravatar.cc/40?img=3';
       } catch (e) {
+        // 检查是否有token，如果没有则重定向到登录页面
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt_token');
+        if(!token) {
+          this.$router.push('/login');
+        }
         this.user.username = '未登录';
         this.user.avatar = 'https://i.pravatar.cc/40?img=3';
       }
@@ -185,7 +195,8 @@ export default {
     async fetchQuestions() {
       try {
         this.loading = true;
-        const response = await request.get('/leetcode/problems/');
+        // 修复：添加 /api 前缀
+        const response = await request.get('/api/leetcode/problems/');
         this.questions = response.data.problems || response.data;
         
         // 确保难度字段格式正确
@@ -235,6 +246,9 @@ export default {
       // 难度过滤变化
       this.currentPage = 1; // 重置到第一页
     },
+    goToAIChat() {
+      this.$router.push('/ai-chat');
+    },
     async logout() {
       try {
         await ElMessageBox.confirm(
@@ -250,7 +264,8 @@ export default {
         return;
       }
       try {
-        await request.post('/auth/jwt/logout/');
+        // 修复：添加 /api 前缀
+        await request.post('/api/auth/jwt/logout/');
       } catch (e) {
       }
       // 清除所有用户相关的本地存储
@@ -593,5 +608,30 @@ export default {
   .questions-table td {
     padding: 4px;
   }
+}
+
+.ai-chat-button {
+  width: 100px;
+  padding: 8px 12px;
+  margin: 0 15px 0 0;
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.ai-chat-button:hover {
+  background-color: #2a6bd1;
+}
+
+.icon-message {
+  margin-right: 6px;
+  font-size: 16px;
 }
 </style>

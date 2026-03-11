@@ -54,7 +54,8 @@ const rules = {
 // 获取当前用户信息
 async function fetchUserInfo(token) {
   try {
-    const response = await request.get('/auth/jwt/me/', {
+    // 修复：添加 /api 前缀
+    const response = await request.get('/api/auth/jwt/me/', {
       headers: { Authorization: `Bearer ${token}` }
     });
     const userData = response.data?.data?.user || response.data?.user || response.data;
@@ -78,8 +79,8 @@ async function onLogin() {
   loginForm.value.validate(async (valid) => {
     if (!valid) return
     try {
-      // 修复：使用正确的字段名 username 而不是 email
-      const res = await request.post('/auth/jwt/login/', {
+      // 修复：使用正确的字段名 username 而不是 email，并添加 /api 前缀
+      const res = await request.post('/api/auth/jwt/login/', {
         username: form.username,  // ✅ 修正：使用 username 字段
         password: form.password,
       })
@@ -97,11 +98,18 @@ async function onLogin() {
       
       ElMessage.success('登录成功')
       
-      // 根据实际角色重定向
-      if (isAdmin) {
-        router.push('/admin')
+      // 检查是否有重定向路径（如AI聊天页面）
+      const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+      if (redirectPath) {
+        sessionStorage.removeItem('redirectAfterLogin'); // 清除重定向路径
+        router.push(redirectPath);
       } else {
-        router.push('/main')
+        // 根据实际角色重定向
+        if (isAdmin) {
+          router.push('/admin')
+        } else {
+          router.push('/main')
+        }
       }
     } catch (err) {
       console.error('登录失败', err)
