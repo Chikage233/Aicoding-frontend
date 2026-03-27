@@ -94,7 +94,7 @@ export default {
   methods: {
     async fetchUserInfo() {
       try {
-        const res = await request.get('/auth/jwt/me/');
+        const res = await request.get('/api/auth/jwt/me/');
         console.log('用户信息接口返回：', res);
         const userInfo = res.data && res.data.user ? res.data.user : {};
         
@@ -112,9 +112,16 @@ export default {
         };
       } catch (e) {
         console.error('获取用户信息失败:', e);
+        // 检查是否有token，如果没有则重定向到登录页面
+        const token = localStorage.getItem('token') || 
+                     localStorage.getItem('access_token') || 
+                     localStorage.getItem('jwt_token');
+        if(!token) {
+          this.$router.push('/login');
+        }
         // 设置默认值
         this.user = {
-          username: '获取失败',
+          username: '未登录',
           nickname: '-',
           avatar: 'https://i.pravatar.cc/100?img=3',
           email: '-',

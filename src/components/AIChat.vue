@@ -1,7 +1,12 @@
 <template>
   <div class="ai-chat-container">
     <div class="chat-header">
-      <h2>AI 助手</h2>
+      <div class="header-left">
+        <button class="back-button" @click="goBackToMain">
+          ← 返回主页面
+        </button>
+        <h2>AI 助手</h2>
+      </div>
       <div class="tabs">
         <button 
           :class="{ active: currentTab === 'chat' }" 
@@ -141,6 +146,8 @@
 </template>
 
 <script>
+import request from '@/utils/request';
+
 export default {
   name: 'AIChat',
   data() {
@@ -172,6 +179,10 @@ export default {
       // 检查localStorage中是否存在token
       const token = localStorage.getItem('token') || localStorage.getItem('jwt_token');
       return !!token; // 返回布尔值，如果token存在则返回true，否则返回false
+    },
+    
+    goBackToMain() {
+      this.$router.push('/main');
     },
     
     switchTab(tab) {
@@ -218,38 +229,16 @@ export default {
       this.isSending = true;
 
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/ai/chat/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('jwt_token')}`
-          },
-          body: JSON.stringify({
-            message: userMessage,
-            temperature: 0.7,
-            max_tokens: 2000
-          })
+        const response = await request.post('/api/ai/chat/', {
+          message: userMessage,
+          temperature: 0.7,
+          max_tokens: 2000
         });
 
-        if (!response.ok) {
-          if(response.status === 401) {
-            // Token无效或过期，重定向到登录页面
-            localStorage.removeItem('token');
-            localStorage.removeItem('jwt_token');
-            // 将当前路径保存到sessionStorage，以便登录后重定向回来
-            sessionStorage.setItem('redirectAfterLogin', this.$route.fullPath);
-            this.$router.push('/login');
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
         // 添加AI回复到对话
         this.messages.push({
           sender: 'ai',
-          content: data.response || data.message || '抱歉，我没有理解您的问题。'
+          content: response.data.response || response.data.message || '抱歉，我没有理解您的问题。'
         });
       } catch (error) {
         console.error('Error sending message:', error);
@@ -303,30 +292,9 @@ export default {
           };
         }
 
-        const response = await fetch('http://127.0.0.1:8000/api/ai/code-help/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('jwt_token')}`
-          },
-          body: JSON.stringify(requestBody)
-        });
+        const response = await request.post('/api/ai/code-help/', requestBody);
 
-        if (!response.ok) {
-          if(response.status === 401) {
-            // Token无效或过期，重定向到登录页面
-            localStorage.removeItem('token');
-            localStorage.removeItem('jwt_token');
-            // 将当前路径保存到sessionStorage，以便登录后重定向回来
-            sessionStorage.setItem('redirectAfterLogin', this.$route.fullPath);
-            this.$router.push('/login');
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        this.codeResult = data.result || data.response || '没有返回结果';
+        this.codeResult = response.data.result || response.data.response || '没有返回结果';
       } catch (error) {
         console.error('Error sending code request:', error);
         this.codeResult = '抱歉，发生了一个错误，无法处理您的请求。';
@@ -342,21 +310,45 @@ export default {
 .ai-chat-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  overflow: hidden;
+  height: 100vh;
+  background: #f8f9fa;
 }
 
 .chat-header {
-  padding: 16px;
-  background-color: #f5f5f5;
-  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-button {
+  background-color: #606266;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.back-button:hover {
+  background-color: #4a4c4f;
 }
 
 .chat-header h2 {
-  margin: 0 0 16px 0;
-  font-size: 1.5rem;
+  margin: 0;
+  color: #333;
 }
 
 .tabs {
@@ -365,77 +357,82 @@ export default {
 }
 
 .tabs button {
-  padding: 8px 16px;
-  border: 1px solid #ccc;
-  background-color: #fff;
-  cursor: pointer;
+  background-color: #e0e0e0;
+  border: none;
+  padding: 6px 12px;
   border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .tabs button.active {
-  background-color: #007bff;
+  background-color: #409eff;
   color: white;
-  border-color: #007bff;
 }
 
 .chat-mode, .code-mode {
   flex: 1;
   display: flex;
   flex-direction: column;
+  padding: 24px;
+  overflow: hidden;
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: #fafafa;
 }
 
 .message {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 8px;
   max-width: 80%;
-  padding: 10px 14px;
-  border-radius: 18px;
-  line-height: 1.4;
 }
 
 .message.user {
-  align-self: flex-end;
-  background-color: #007bff;
-  color: white;
+  background-color: #e3f2fd;
+  margin-left: auto;
+  text-align: right;
 }
 
 .message.ai {
-  align-self: flex-start;
-  background-color: #e9ecef;
-  color: #333;
+  background-color: #f5f5f5;
+  margin-right: auto;
+  text-align: left;
+}
+
+.message-content {
+  word-break: break-word;
 }
 
 .input-area {
   display: flex;
-  padding: 16px;
-  border-top: 1px solid #ddd;
-  background-color: #f9f9f9;
+  gap: 12px;
 }
 
 .input-area textarea {
   flex: 1;
-  padding: 10px;
-  border: 1px solid #ccc;
+  padding: 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  resize: none;
-  height: 60px;
-  margin-right: 10px;
+  resize: vertical;
+  min-height: 48px;
 }
 
 .input-area button {
-  padding: 10px 20px;
-  background-color: #007bff;
+  padding: 12px 24px;
+  background-color: #409eff;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .input-area button:disabled {
@@ -445,43 +442,44 @@ export default {
 
 .code-tabs {
   display: flex;
-  padding: 0 16px;
-  border-bottom: 1px solid #ddd;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .code-tabs button {
-  padding: 8px 16px;
-  border: 1px solid #ccc;
-  background-color: #fff;
+  background-color: #e0e0e0;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
   cursor: pointer;
-  border-radius: 4px 4px 0 0;
-  margin-bottom: -1px;
+  font-size: 12px;
 }
 
 .code-tabs button.active {
-  background-color: #007bff;
+  background-color: #409eff;
   color: white;
-  border-color: #007bff;
 }
 
 .code-action-section {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  margin-bottom: 24px;
 }
 
 .code-action-section label {
+  display: block;
+  margin-bottom: 8px;
   font-weight: bold;
+  color: #333;
 }
 
-.code-action-section textarea,
 .code-action-section select,
+.code-action-section textarea,
 .code-action-section input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
+  padding: 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
 }
 
 .code-action-section textarea {
@@ -489,18 +487,14 @@ export default {
   resize: vertical;
 }
 
-.code-action-section input {
-  height: 40px;
-}
-
 .code-action-section button {
-  align-self: flex-start;
-  padding: 10px 20px;
-  background-color: #28a745;
+  padding: 12px 24px;
+  background-color: #409eff;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .code-action-section button:disabled {
@@ -509,24 +503,56 @@ export default {
 }
 
 .code-result {
-  padding: 16px;
-  margin: 16px;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  overflow-x: auto;
+  margin-top: 24px;
 }
 
 .code-result label {
-  display: block;
   font-weight: bold;
-  margin-bottom: 8px;
+  display: block;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.code-result pre {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  border: 1px solid #e0e0e0;
 }
 
 .loading {
-  padding: 16px;
   text-align: center;
+  padding: 24px;
   color: #666;
   font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .ai-chat-container {
+    padding: 0;
+  }
+  
+  .chat-header {
+    padding: 12px 16px;
+  }
+  
+  .chat-mode, .code-mode {
+    padding: 16px;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .input-area {
+    flex-direction: column;
+  }
+  
+  .input-area button {
+    align-self: flex-end;
+    width: 100px;
+  }
 }
 </style>

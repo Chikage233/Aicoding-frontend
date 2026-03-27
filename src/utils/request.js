@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus' // 用 Element Plus 提示框
 // 创建 Axios 实例
 const service = axios.create({
   baseURL: '/api', // 匹配 Vite 代理前缀，转发到 Django
-  timeout: 5000, // 请求超时时间（5秒）
+  timeout: 30000, // 请求超时时间（5秒）
   headers: {
     'Content-Type': 'application/json;charset=utf-8'
   }

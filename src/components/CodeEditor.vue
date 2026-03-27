@@ -109,7 +109,7 @@ export default {
   methods: {
     async loadLanguages() {
       try {
-        const response = await request.get('/judge0/languages/')
+        const response = await request.get('/api/judge0/languages/')
         if (response.code === 200) {
           this.availableLanguages = response.data.languages || []
           if (this.availableLanguages.length > 0 && !this.selectedLanguage) {
@@ -198,7 +198,7 @@ int main() {
           stdin: this.stdin || ''
         }
         
-        const response = await request.post('/judge0/submit/', requestData)
+        const response = await request.post('/api/judge0/submit/', requestData)
         if (response.code === 200) {
           this.executionResult = response.data
         }

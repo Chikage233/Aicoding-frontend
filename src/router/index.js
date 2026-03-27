@@ -10,6 +10,7 @@ import ProblemDetail from '@/components/ProblemDetail.vue'
 import UserManagement from '@/components/UserManagement.vue'
 import ProblemManagement from '@/components/ProblemManagement.vue'
 import AIChat from '@/components/AIChat.vue'
+import AIJudge from '@/components/AIJudge.vue'
 
 const routes = [
   {
@@ -64,6 +65,12 @@ const routes = [
     path: '/ai-chat',
     name: 'AIChat',
     component: AIChat
+  },
+  {
+    path: '/ai-judge/:problemId?',
+    name: 'AIJudge',
+    component: AIJudge,
+    props: true
   }
 ]
 

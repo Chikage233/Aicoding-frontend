@@ -90,8 +90,11 @@ async function onLogin() {
       const access = responseData.access;
       const refresh = responseData.refresh;
       
-      if (access) localStorage.setItem('token', access)
-      if (refresh) localStorage.setItem('refresh_token', refresh)
+      if (access) {
+        localStorage.setItem('token', access);
+        localStorage.setItem('access_token', access); // 兼容不同读取方式
+      }
+      if (refresh) localStorage.setItem('refresh_token', refresh);
       
       // 获取用户信息并确定角色
       const isAdmin = await fetchUserInfo(access);
