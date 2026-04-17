@@ -75,6 +75,15 @@
             <span class="failure-icon">✗</span>
             <span>很遗憾，代码未能通过所有测试用例</span>
           </div>
+
+          <div v-if="!(judgeResult.success || judgeResult.correct)" class="wrong-box">
+            <p v-if="judgeResult.error_reason">错误原因：{{ judgeResult.error_reason }}</p>
+            <p v-if="judgeResult.error_line">错误位置：{{ judgeResult.error_line }}</p>
+            <p v-if="judgeResult.suggestion">修改建议：{{ judgeResult.suggestion }}</p>
+            <p v-if="judgeResult.guide_question" class="guide">
+              💡 引导思考：{{ judgeResult.guide_question }}
+            </p>
+          </div>
           
           <div v-if="judgeResult.message" class="result-message">
             <strong>AI反馈:</strong>
@@ -221,13 +230,14 @@ async function submitCode() {
     }
 
     const response = await request.post('/api/ai/judge/submit-and-complete/', requestBody)
+    const resultData = response.data || response
     
     // 在控制台打印完整响应，方便调试
     console.log('=== 判题完整响应数据 ===')
-    console.log('响应数据:', response.data)
-    console.log('所有字段:', Object.keys(response.data))
+    console.log('响应数据:', resultData)
+    console.log('所有字段:', Object.keys(resultData))
     
-    judgeResult.value = response.data
+    judgeResult.value = resultData
     errorMessage.value = ''
   } catch (error) {
     console.error('提交判题失败:', error)
@@ -457,6 +467,25 @@ async function submitCode() {
 .result-message p {
   margin: 8px 0 0 0;
   line-height: 1.5;
+}
+
+.wrong-box {
+  margin-top: 12px;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: #a8071a;
+}
+
+.wrong-box p {
+  margin: 6px 0;
+}
+
+.wrong-box .guide {
+  margin-top: 8px;
+  color: #ad4e00;
+  font-weight: 600;
 }
 
 /* 调试信息区域样式 */

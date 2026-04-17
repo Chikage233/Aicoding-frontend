@@ -29,12 +29,30 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response) => {
     const res = response.data
-      // 适配 Django 接口：假设 code=200 为成功；同时兼容 JWT 登录直接返回 { access, refresh }
-      if (res.code === 200 || res.access || res.token) {
-        return res
+    // 兼容多种成功返回：
+    // 1) { code: 200, data: ... }
+    // 2) 直接返回对象/数组（无 code 字段）
+    // 3) JWT 登录返回 { access, refresh }
+    if (res == null) return res
+
+    if (typeof res === 'object' && !Array.isArray(res)) {
+      // 显式业务失败分支
+      if (Object.prototype.hasOwnProperty.call(res, 'success') && res.success === false) {
+        ElMessage.error(res.msg || res.message || '请求失败')
+        return Promise.reject(res)
       }
-      ElMessage.error(res.msg || '请求失败')
-      return Promise.reject(res)
+
+      // 仅当后端给了 code 且明确不是成功时才拦截
+      if (Object.prototype.hasOwnProperty.call(res, 'code')) {
+        const codeNum = Number(res.code)
+        if (!Number.isNaN(codeNum) && codeNum !== 200) {
+          ElMessage.error(res.msg || res.message || '请求失败')
+          return Promise.reject(res)
+        }
+      }
+    }
+
+    return res
   },
   (error) => {
     ElMessage.error(error.message || '服务器错误')

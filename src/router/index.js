@@ -4,18 +4,25 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Login from '@/components/Login.vue'
 import Register from '@/components/Register.vue'
 import MainPage from '@/components/MainPage.vue'
+import ShowcasePage from '@/components/ShowcasePage.vue'
 import AdminPage from '@/components/AdminPage.vue'
 import ProfilePage from '@/components/ProfilePage.vue'
 import ProblemDetail from '@/components/ProblemDetail.vue'
 import UserManagement from '@/components/UserManagement.vue'
 import ProblemManagement from '@/components/ProblemManagement.vue'
+import NicknameReviewManagement from '@/components/NicknameReviewManagement.vue'
 import AIChat from '@/components/AIChat.vue'
 import AIJudge from '@/components/AIJudge.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/login'
+    redirect: '/showcase'
+  },
+  {
+    path: '/showcase',
+    name: 'ShowcasePage',
+    component: ShowcasePage
   },
   {
     path: '/login',
@@ -48,6 +55,12 @@ const routes = [
     path: '/admin/problems',
     name: 'ProblemManagement',
     component: ProblemManagement,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/admin/nickname-reviews',
+    name: 'NicknameReviewManagement',
+    component: NicknameReviewManagement,
     meta: { requiresAdmin: true }
   },
   {

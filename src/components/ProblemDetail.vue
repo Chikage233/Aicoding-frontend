@@ -3,44 +3,67 @@
     <div class="left-side">
       <!-- 导航栏 -->
       <div class="problem-navigation">
-        <button class="nav-button back-button" @click="goBackToMain">
-          ← 返回主页面
-        </button>
+        <div class="problem-navigation-left">
+          <button class="nav-button back-button" @click="goBackToMain">
+            返回题库
+          </button>
+          <div class="nav-meta">
+            <span class="nav-progress">进度 {{ problemProgressText }}</span>
+            <span class="nav-status" :class="currentProblemDone ? 'is-done' : 'is-todo'">
+              {{ currentProblemDone ? '已完成' : '进行中' }}
+            </span>
+            <span class="nav-shortcut">Alt + ← / → 切题</span>
+          </div>
+        </div>
         <div class="nav-buttons">
           <button 
             class="nav-button prev-button" 
             @click="goToPreviousProblem"
             :disabled="isFirstProblem"
           >
-            上一道
+            上一题
           </button>
           <button 
             class="nav-button next-button" 
             @click="goToNextProblem"
             :disabled="isLastProblem"
           >
-            下一道
+            下一题
           </button>
         </div>
       </div>
       
       <!-- 题目内容区域 -->
       <div class="problem-content-wrapper">
-        <h1 class="problem-title">{{ problem.problem_id ? problem.problem_id + '. ' : '' }}{{ problem.title }}</h1>
-        <div class="problem-info">
-          <span :class="'difficulty-' + getDifficultyText(problem.difficulty)">{{ getDifficultyText(problem.difficulty) }}</span>
-          <span class="problem-slug">Slug: {{ problem.title_slug }}</span>
-          <div v-if="problem.tags && problem.tags.length" class="problem-tags-inline">
-            <span
-              v-for="tag in problem.tags"
-              :key="tag"
-              class="tag"
-            >
-              {{ tag }}
-            </span>
-          </div>
+        <div v-if="isProblemLoading" class="problem-loading-card">
+          <h3>正在加载题目...</h3>
+          <p>请稍候，题目内容马上就好。</p>
         </div>
-        <div v-html="problem.content"></div>
+        <div v-else-if="problemLoadError" class="problem-error-card">
+          <h3>题目加载失败</h3>
+          <p>{{ problemLoadError }}</p>
+          <button class="retry-btn" @click="retryLoadProblem">重新加载</button>
+        </div>
+        <div v-else class="problem-content-card">
+          <div class="problem-title-row">
+            <h1 class="problem-title">{{ problem.problem_id ? problem.problem_id + '. ' : '' }}{{ problem.title }}</h1>
+            <button class="inline-ai-btn" @click="openAIPanelTo('chat')">问 AI</button>
+          </div>
+          <div class="problem-info">
+            <span :class="'difficulty-' + getDifficultyText(problem.difficulty)">{{ getDifficultyText(problem.difficulty) || '未知' }}</span>
+            <span v-if="problem.title_slug" class="problem-slug">Slug: {{ problem.title_slug }}</span>
+            <div v-if="problem.tags && problem.tags.length" class="problem-tags-inline">
+              <span
+                v-for="tag in problem.tags"
+                :key="tag"
+                class="tag"
+              >
+                {{ tag }}
+              </span>
+            </div>
+          </div>
+          <div class="problem-content" v-html="problem.content"></div>
+        </div>
       </div>
     </div>
     <div class="right-side">
@@ -209,9 +232,14 @@
               </select>
               
               <label>源代码:</label>
+              <div class="judge-toolbar">
+                <button type="button" class="judge-secondary-btn" @click="syncJudgeDraftFromEditor" :disabled="aiIsSending">
+                  使用编辑器代码
+                </button>
+              </div>
               <textarea 
                 v-model="aiJudgeCode" 
-                placeholder="// 在这里编写您的代码..."
+                :placeholder="aiJudgeDefaultCode"
                 class="ai-judge-code-textarea"
               ></textarea>
               
@@ -320,6 +348,8 @@ export default {
     }
   },
   data() {
+    const defaultJudgeCode = '// 在这里编写您的代码...';
+
     return {
       problem: {
         problem_id: null,
@@ -331,6 +361,8 @@ export default {
       },
       problemList: [], // 存储题目列表
       currentIndex: -1, // 当前题目在列表中的索引
+      isProblemLoading: false,
+      problemLoadError: '',
       
       // AI助手相关数据
       aiPanelOpen: false,
@@ -348,8 +380,9 @@ export default {
       aiCodeResult: '',
       
       // AI判题相关数据
+      aiJudgeDefaultCode: defaultJudgeCode,
       aiJudgeLanguage: 'python3',
-      aiJudgeCode: '// 在这里编写您的代码...',
+      aiJudgeCode: defaultJudgeCode,
       aiJudgeNotes: '',
       aiJudgeResult: null,
       aiJudgeError: '',
@@ -364,42 +397,215 @@ export default {
     },
     isLastProblem() {
       return this.currentIndex >= this.problemList.length - 1;
+    },
+    problemProgressText() {
+      if (!this.problemList.length || this.currentIndex < 0) return '-- / --';
+      return `${this.currentIndex + 1} / ${this.problemList.length}`;
+    },
+    currentProblemDone() {
+      const currentProblem = this.problemList[this.currentIndex];
+      if (currentProblem) return this.isDoneFlag(currentProblem.is_done);
+      return this.isDoneFlag(this.problem.is_done);
     }
   },
   async mounted() {
-    await this.fetchProblemDetail();
-    await this.fetchProblemList();
-    // 检查认证状态
     if (!this.checkAuth()) {
       sessionStorage.setItem('redirectAfterLogin', this.$route.fullPath);
       this.$router.push('/login');
+      return;
     }
+    await Promise.all([this.fetchProblemDetail(), this.fetchProblemList()]);
+    window.addEventListener('keydown', this.handlePageHotkeys);
+  },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.handlePageHotkeys);
   },
   methods: {
     checkAuth() {
       const token = localStorage.getItem('token') || localStorage.getItem('jwt_token');
       return !!token;
     },
+
+    isDoneFlag(value) {
+      return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true';
+    },
+
+    updateCurrentIndexByProblemId(problemId = this.problemId) {
+      this.currentIndex = this.problemList.findIndex((item) => Number(item.problem_id) === Number(problemId));
+    },
+
+    normalizeProblemPayload(payload = {}) {
+      return {
+        ...payload,
+        problem_id: payload.problem_id ?? payload.id ?? this.problemId,
+        title: payload.title || '',
+        content: payload.content || '',
+        difficulty: payload.difficulty ?? '',
+        title_slug: payload.title_slug || payload.slug || '',
+        tags: Array.isArray(payload.tags) ? payload.tags : [],
+        is_done: this.isDoneFlag(payload.is_done)
+      };
+    },
+
+    parseProblemBatch(responsePayload) {
+      const candidates = [responsePayload];
+      if (responsePayload && typeof responsePayload === 'object' && responsePayload.data) {
+        candidates.push(responsePayload.data);
+      }
+
+      for (const item of candidates) {
+        if (Array.isArray(item)) {
+          return { list: item, hasNext: item.length > 0, hasNextFromApi: false };
+        }
+        if (!item || typeof item !== 'object') continue;
+
+        if (Array.isArray(item.results)) {
+          const hasNextFromApi = Object.prototype.hasOwnProperty.call(item, 'next');
+          return { list: item.results, hasNext: Boolean(item.next), hasNextFromApi };
+        }
+        if (Array.isArray(item.problems)) {
+          const hasNextFromApi = Object.prototype.hasOwnProperty.call(item, 'next');
+          const hasNext = hasNextFromApi ? Boolean(item.next) : item.problems.length > 0;
+          return { list: item.problems, hasNext, hasNextFromApi };
+        }
+        if (Array.isArray(item.items)) {
+          return { list: item.items, hasNext: item.items.length > 0, hasNextFromApi: false };
+        }
+        if (Array.isArray(item.list)) {
+          return { list: item.list, hasNext: item.list.length > 0, hasNextFromApi: false };
+        }
+        if (item.problem_id || item.id) {
+          return { list: [item], hasNext: false, hasNextFromApi: true };
+        }
+      }
+
+      return { list: [], hasNext: false, hasNextFromApi: true };
+    },
+
+    extractProblemDetailPayload(responsePayload) {
+      if (!responsePayload || typeof responsePayload !== 'object') return {};
+
+      const root = responsePayload.data && typeof responsePayload.data === 'object'
+        ? responsePayload.data
+        : responsePayload;
+
+      if (root.problem && typeof root.problem === 'object') return root.problem;
+      return root;
+    },
+
+    retryLoadProblem() {
+      this.fetchProblemDetail();
+      this.fetchProblemList();
+    },
+
+    handlePageHotkeys(event) {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.key === 'ArrowLeft' && !this.isFirstProblem) {
+        event.preventDefault();
+        this.goToPreviousProblem();
+      }
+      if (event.key === 'ArrowRight' && !this.isLastProblem) {
+        event.preventDefault();
+        this.goToNextProblem();
+      }
+    },
+
+    openAIPanelTo(tab = 'chat') {
+      if (!this.checkAuth()) {
+        sessionStorage.setItem('redirectAfterLogin', this.$route.fullPath);
+        this.$router.push('/login');
+        return;
+      }
+
+      this.aiPanelOpen = true;
+      this.aiCurrentTab = tab;
+      if (tab === 'judge') this.syncJudgeDraftFromEditor();
+    },
+
+    normalizeJudgeLanguage(languageText) {
+      const text = String(languageText || '').toLowerCase();
+      if (!text) return this.aiJudgeLanguage;
+      if (text.includes('python')) return 'python3';
+      if (text.includes('javascript') || text.includes('node')) return 'javascript';
+      if (text.includes('typescript')) return 'typescript';
+      if (text.includes('c++') || text.includes('cpp')) return 'cpp';
+      if (text.includes('c#') || text.includes('csharp')) return 'csharp';
+      if (text.includes('java')) return 'java';
+      if (text === 'go' || text.includes('golang') || text.includes(' go')) return 'go';
+      if (text.includes('rust')) return 'rust';
+      return this.aiJudgeLanguage;
+    },
+
+    syncJudgeDraftFromEditor() {
+      const editorCode = this.getCurrentCode();
+      const editorLanguage = this.getCurrentLanguage();
+      if (editorCode && editorCode.trim()) {
+        this.aiJudgeCode = editorCode;
+      }
+      this.aiJudgeLanguage = this.normalizeJudgeLanguage(editorLanguage);
+    },
     
     async fetchProblemDetail() {
+      this.isProblemLoading = true;
+      this.problemLoadError = '';
+
       try {
         const response = await request.get(`/api/leetcode/problems/${this.problemId}/`);
-        this.problem = response.data.problem || response.data;
+        const payload = this.extractProblemDetailPayload(response);
+        this.problem = this.normalizeProblemPayload(payload);
       } catch (error) {
         console.error('获取题目详情失败:', error);
+        this.problemLoadError = '加载题目失败，请稍后重试';
+      } finally {
+        this.isProblemLoading = false;
       }
     },
     async fetchProblemList() {
       try {
-        const response = await request.get('/api/leetcode/problems/');
-        this.problemList = Array.isArray(response.data) ? response.data : 
-                         (response.data.problems || response.data.results || []);
+        const allQuestions = [];
+        let page = 1;
+        const requestPageSize = 50;
+        let hasMore = true;
+        let safeGuard = 0;
+
+        while (hasMore) {
+          const response = await request.get('/api/leetcode/problems/', {
+            params: {
+              page,
+              page_size: requestPageSize
+            }
+          });
+
+          const { list, hasNext, hasNextFromApi } = this.parseProblemBatch(response);
+          allQuestions.push(...list);
+
+          if (hasNextFromApi) {
+            hasMore = hasNext;
+          } else {
+            hasMore = list.length === requestPageSize;
+          }
+
+          page += 1;
+          safeGuard += 1;
+          if (safeGuard > 40 || allQuestions.length >= 2000) hasMore = false;
+        }
+
+        this.problemList = allQuestions.map((item) => ({
+          ...item,
+          problem_id: item.problem_id ?? item.id,
+          is_done: this.isDoneFlag(item.is_done)
+        }));
         
-        this.currentIndex = this.problemList.findIndex(p => 
-          Number(p.problem_id) === Number(this.problemId)
-        );
+        this.updateCurrentIndexByProblemId();
+
+        const currentProblem = this.problemList[this.currentIndex];
+        if (currentProblem && this.isDoneFlag(currentProblem.is_done)) {
+          this.problem.is_done = true;
+        }
       } catch (error) {
         console.error('获取题目列表失败:', error);
+        this.problemList = [];
+        this.currentIndex = -1;
       }
     },
     goBackToMain() {
@@ -465,6 +671,9 @@ export default {
         return;
       }
       this.aiCurrentTab = tab;
+      if (tab === 'judge') {
+        this.syncJudgeDraftFromEditor();
+      }
     },
     
     setAICodeAction(action) {
@@ -571,7 +780,7 @@ export default {
       if (this.$refs.codeEditorRef && this.$refs.codeEditorRef.sourceCode) {
         return this.$refs.codeEditorRef.sourceCode;
       }
-      return '// 在这里编写您的代码...';
+      return this.aiJudgeDefaultCode;
     },
     
     // 获取当前选择的编程语言
@@ -590,7 +799,7 @@ export default {
       }
       
       // 如果用户没有在AI判题区域输入代码，尝试从CodeEditor获取
-      const codeToSubmit = this.aiJudgeCode.trim() !== '// 在这里编写您的代码...' && this.aiJudgeCode.trim() 
+      const codeToSubmit = this.aiJudgeCode.trim() !== this.aiJudgeDefaultCode && this.aiJudgeCode.trim() 
         ? this.aiJudgeCode 
         : this.getCurrentCode();
       
@@ -605,12 +814,12 @@ export default {
 
       try {
         // 如果用户没有选择语言，尝试从CodeEditor获取
-        const languageToSubmit = this.aiJudgeCode.trim() !== '// 在这里编写您的代码...' && this.aiJudgeCode.trim()
+        const languageToSubmit = this.aiJudgeCode.trim() !== this.aiJudgeDefaultCode && this.aiJudgeCode.trim()
           ? this.aiJudgeLanguage
-          : this.getCurrentLanguage();
+          : this.normalizeJudgeLanguage(this.getCurrentLanguage());
 
         const requestBody = {
-          problem_id: parseInt(this.problemId),
+          problem_id: parseInt(this.problemId, 10),
           source_code: codeToSubmit,
           language: languageToSubmit,
           notes: this.aiJudgeNotes.trim() || undefined
@@ -676,7 +885,7 @@ export default {
     // 重置AI判题状态
     resetAIJudgeState() {
       this.aiJudgeLanguage = 'python3';
-      this.aiJudgeCode = '// 在这里编写您的代码...';
+      this.aiJudgeCode = this.aiJudgeDefaultCode;
       this.aiJudgeNotes = '';
       this.aiJudgeResult = null;
       this.aiJudgeError = '';
@@ -698,6 +907,7 @@ export default {
             // 标记为已完成
             currentProblem.is_done = true;
             currentProblem.status = '已完成';
+            this.problem.is_done = true;
             
             console.log('本地题目列表状态已更新:', currentProblem);
           }
@@ -719,6 +929,7 @@ export default {
           const currentProblem = this.problemList[this.currentIndex];
           if (currentProblem) {
             currentProblem.is_done = true;
+            this.problem.is_done = true;
           }
         }
       }
@@ -732,10 +943,10 @@ export default {
         await this.fetchProblemDetail();
         // 如果题目列表已经加载，重新确定当前索引
         if (this.problemList && this.problemList.length > 0) {
-          this.currentIndex = this.problemList.findIndex(p => 
-            Number(p.problem_id) === Number(newId)
-          );
+          this.updateCurrentIndexByProblemId(newId);
           console.log('Updated current index:', this.currentIndex);
+        } else {
+          await this.fetchProblemList();
         }
         // 重置AI判题状态
         this.resetAIJudgeState();
@@ -1415,6 +1626,272 @@ export default {
   background: #2a6bd1;
 }
 
+/* ---- Enhanced solving-page layout ---- */
+.problem-detail {
+  --pd-bg: #f3f6fb;
+  --pd-card: #ffffff;
+  --pd-border: #dfe7f3;
+  --pd-text: #0f172a;
+  --pd-muted: #64748b;
+  --pd-primary: #1f6feb;
+  --pd-primary-strong: #1d4ed8;
+  --pd-success: #0f9d58;
+  --pd-warning: #d97706;
+  --pd-danger: #dc2626;
+  background:
+    radial-gradient(1200px 480px at -10% -10%, rgba(31, 111, 235, 0.16), transparent 60%),
+    radial-gradient(900px 400px at 120% 10%, rgba(30, 64, 175, 0.12), transparent 58%),
+    var(--pd-bg);
+}
+
+.left-side {
+  background: transparent;
+  border-right: 1px solid var(--pd-border);
+}
+
+.right-side {
+  background: #edf2fb;
+}
+
+.problem-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  padding: 14px 22px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid var(--pd-border);
+  backdrop-filter: blur(6px);
+}
+
+.problem-navigation-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nav-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-progress {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-primary);
+  background: #e8f1ff;
+}
+
+.nav-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nav-status.is-done {
+  color: var(--pd-success);
+  background: #e6f6ee;
+}
+
+.nav-status.is-todo {
+  color: var(--pd-warning);
+  background: #fff4df;
+}
+
+.nav-shortcut {
+  font-size: 12px;
+  color: var(--pd-muted);
+}
+
+.nav-button {
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(31, 111, 235, 0.18);
+}
+
+.back-button {
+  box-shadow: 0 3px 10px rgba(51, 65, 85, 0.18);
+}
+
+.prev-button,
+.next-button {
+  min-width: 84px;
+}
+
+.problem-content-wrapper {
+  padding: 22px 24px 28px;
+}
+
+.problem-loading-card,
+.problem-error-card,
+.problem-content-card {
+  background: var(--pd-card);
+  border: 1px solid var(--pd-border);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+}
+
+.problem-loading-card h3,
+.problem-error-card h3 {
+  margin: 0 0 8px;
+  color: var(--pd-text);
+}
+
+.problem-loading-card p,
+.problem-error-card p {
+  margin: 0;
+  color: var(--pd-muted);
+}
+
+.problem-loading-card {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.retry-btn,
+.inline-ai-btn,
+.judge-secondary-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-btn,
+.inline-ai-btn {
+  color: #fff;
+  background: var(--pd-primary);
+  box-shadow: 0 4px 10px rgba(31, 111, 235, 0.2);
+}
+
+.retry-btn:hover,
+.inline-ai-btn:hover {
+  background: var(--pd-primary-strong);
+}
+
+.problem-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.problem-title {
+  margin: 0;
+  font-size: 1.9rem;
+  line-height: 1.24;
+  color: var(--pd-text);
+}
+
+.problem-info {
+  margin-top: 12px;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.problem-info span {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.problem-slug {
+  color: #334155;
+  background: #ecf1f8;
+}
+
+.tag {
+  border-radius: 999px;
+  background: #e8f1ff;
+  color: #1d4ed8;
+}
+
+.problem-content {
+  color: #1f2937;
+  line-height: 1.75;
+  font-size: 15px;
+}
+
+.problem-content :deep(h1),
+.problem-content :deep(h2),
+.problem-content :deep(h3) {
+  color: #0f172a;
+  margin-top: 1.15em;
+  margin-bottom: 0.6em;
+}
+
+.problem-content :deep(p) {
+  margin: 0.7em 0;
+}
+
+.problem-content :deep(pre) {
+  overflow-x: auto;
+  border-radius: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.problem-content :deep(code) {
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+  background: #eff4fb;
+  color: #0f172a;
+}
+
+.problem-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+}
+
+.problem-content :deep(th),
+.problem-content :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.problem-content :deep(ul),
+.problem-content :deep(ol) {
+  margin: 0.75em 0;
+  padding-left: 1.2em;
+}
+
+.judge-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -2px 0 8px;
+}
+
+.judge-secondary-btn {
+  color: #1d4ed8;
+  background: #edf3ff;
+}
+
+.judge-secondary-btn:hover:not(:disabled) {
+  background: #dbe8ff;
+}
+
+.judge-secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .problem-detail {
     flex-direction: column;
@@ -1431,6 +1908,20 @@ export default {
     gap: 12px;
     padding: 12px 15px;
   }
+
+  .problem-navigation-left {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nav-meta {
+    width: 100%;
+  }
+
+  .nav-shortcut {
+    display: none;
+  }
   
   .nav-buttons {
     width: 100%;
@@ -1438,11 +1929,26 @@ export default {
   }
   
   .problem-content-wrapper {
-    padding: 15px;
+    padding: 12px;
+  }
+
+  .problem-loading-card,
+  .problem-error-card,
+  .problem-content-card {
+    padding: 16px;
   }
   
   .problem-title {
     font-size: 1.5em;
+  }
+
+  .problem-title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-ai-btn {
+    width: 100%;
   }
   
   .problem-info {
