@@ -11,9 +11,11 @@ import ProblemDetail from '@/components/ProblemDetail.vue'
 import UserManagement from '@/components/UserManagement.vue'
 import ProblemManagement from '@/components/ProblemManagement.vue'
 import NicknameReviewManagement from '@/components/NicknameReviewManagement.vue'
+import AdminHomeworkManagement from '@/components/AdminHomeworkManagement.vue'
 import AIChat from '@/components/AIChat.vue'
 import AIJudge from '@/components/AIJudge.vue'
 import PersonalizedExercisesPage from '@/components/PersonalizedExercisesPage.vue'
+import UserHomeworkPage from '@/components/UserHomeworkPage.vue'
 
 const routes = [
   {
@@ -59,6 +61,12 @@ const routes = [
     meta: { requiresAdmin: true }
   },
   {
+    path: '/admin/homeworks',
+    name: 'AdminHomeworkManagement',
+    component: AdminHomeworkManagement,
+    meta: { requiresAdmin: true }
+  },
+  {
     path: '/admin/nickname-reviews',
     name: 'NicknameReviewManagement',
     component: NicknameReviewManagement,
@@ -73,6 +81,11 @@ const routes = [
     path: '/personalized-exercises',
     name: 'PersonalizedExercisesPage',
     component: PersonalizedExercisesPage
+  },
+  {
+    path: '/my-homeworks',
+    name: 'UserHomeworkPage',
+    component: UserHomeworkPage
   },
   {
     path: '/leetcode/problems/:problemId/',

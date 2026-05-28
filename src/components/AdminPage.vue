@@ -6,6 +6,7 @@
       <p v-else>您没有访问管理员页面的权限。</p>
       <div class="header-actions">
         <router-link to="/admin/nickname-reviews" class="review-entry-button">昵称审核</router-link>
+        <router-link to="/admin/homeworks" class="review-entry-button">作业管理</router-link>
         <button class="logout-button" @click="handleLogout">退出管理员登录</button>
       </div>
     </div>

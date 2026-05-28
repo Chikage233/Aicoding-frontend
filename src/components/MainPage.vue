@@ -48,6 +48,7 @@
             <button type="button" class="quick-btn primary" @click="goToPersonalizedExercises">
               个性化题单
             </button>
+            <button type="button" class="quick-btn" @click="goToHomeworks">我的作业</button>
             <button type="button" class="quick-btn" @click="goToAIChat">问 AI 助手</button>
             <button type="button" class="quick-btn" @click="goProfile">编辑资料</button>
           </div>
@@ -673,6 +674,10 @@ export default {
 
     goToPersonalizedExercises() {
       this.$router.push('/personalized-exercises')
+    },
+
+    goToHomeworks() {
+      this.$router.push('/my-homeworks')
     },
 
     async logout() {
