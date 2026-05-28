@@ -178,10 +178,11 @@ function resetCountdown() {
   sending.value = false
 }
 
-function startCountdown() {
+function startCountdown(seconds = 60) {
   resetCountdown()
   sending.value = true
-  count.value = 60
+  const cooldownSeconds = Number(seconds)
+  count.value = Number.isFinite(cooldownSeconds) && cooldownSeconds > 0 ? Math.ceil(cooldownSeconds) : 60
   timer = setInterval(() => {
     count.value -= 1
     if (count.value <= 0) {
@@ -190,7 +191,64 @@ function startCountdown() {
   }, 1000)
 }
 
+function extractCooldownSeconds(payload) {
+  const candidates = [
+    payload?.retry_after,
+    payload?.retry_after_seconds,
+    payload?.cooldown,
+    payload?.cooldown_seconds,
+    payload?.remaining_seconds,
+    payload?.wait_seconds
+  ]
+
+  for (const candidate of candidates) {
+    const seconds = Number(candidate)
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.ceil(seconds)
+    }
+  }
+
+  return 60
+}
+
+function getRateLimitMessage(payload, defaultMessage) {
+  const rawCode = payload?.business_code || payload?.error_code || payload?.code || ''
+  const businessCode = String(rawCode).toLowerCase()
+
+  if (businessCode.includes('cooldown') || businessCode.includes('cooling')) {
+    return '操作冷却中，请稍后再试'
+  }
+
+  if (
+    businessCode.includes('too_many') ||
+    businessCode.includes('attempt') ||
+    businessCode.includes('rate_limit') ||
+    businessCode.includes('limit_exceeded')
+  ) {
+    return '尝试次数过多，请稍后再试'
+  }
+
+  return payload?.detail || payload?.message || defaultMessage
+}
+
+function handleRateLimit(err, { defaultMessage, startCooldownOnRateLimit = false } = {}) {
+  const status = Number(err?.response?.status || err?.status || 0)
+  if (status !== 429) return false
+
+  const payload = unwrapResponse(err?.response?.data || err?.data || {}) || {}
+  const message = getRateLimitMessage(payload, defaultMessage || '请求过于频繁，请稍后再试')
+  ElMessage.warning(message)
+
+  if (startCooldownOnRateLimit) {
+    startCountdown(extractCooldownSeconds(payload))
+  }
+
+  return true
+}
+
 async function sendCode() {
+  if (sending.value) return
+
   if (!form.email) {
     ElMessage.warning('请输入邮箱以接收验证码')
     return
@@ -202,12 +260,28 @@ async function sendCode() {
     return
   }
 
+  sending.value = true
+
   try {
-    await request.post('/api/auth/send-verification-code/', { email: form.email })
+    await request.post('/api/auth/send-verification-code/', { email: form.email }, {
+      skipAuthTokenInjection: true,
+      skipGlobalErrorHandler: true
+    })
     startCountdown()
     ElMessage.success('验证码已发送')
   } catch (err) {
     console.error('发送验证码失败', err)
+
+    if (
+      handleRateLimit(err, {
+        defaultMessage: '发送验证码过于频繁，请稍后再试',
+        startCooldownOnRateLimit: true
+      })
+    ) {
+      return
+    }
+
+    sending.value = false
     const errorMessage =
       err?.response?.data?.detail ||
       err?.response?.data?.message ||
@@ -226,16 +300,30 @@ async function onRegister() {
     registering.value = true
 
     try {
-      await request.post('/api/auth/verify-code/', {
-        email: form.email,
-        code: form.code
-      })
+      await request.post(
+        '/api/auth/verify-code/',
+        {
+          email: form.email,
+          code: form.code
+        },
+        {
+          skipAuthTokenInjection: true,
+          skipGlobalErrorHandler: true
+        }
+      )
 
-      const res = await request.post('/api/auth/register-with-code/', {
-        email: form.email,
-        code: form.code,
-        password: form.password
-      })
+      const res = await request.post(
+        '/api/auth/register-with-code/',
+        {
+          email: form.email,
+          code: form.code,
+          password: form.password
+        },
+        {
+          skipAuthTokenInjection: true,
+          skipGlobalErrorHandler: true
+        }
+      )
 
       const responseData = unwrapResponse(res) || {}
       const token = responseData.token || responseData.access
@@ -253,6 +341,15 @@ async function onRegister() {
       router.push('/login')
     } catch (err) {
       console.error('注册失败', err)
+
+      if (
+        handleRateLimit(err, {
+          defaultMessage: '当前操作过于频繁，请稍后再试'
+        })
+      ) {
+        return
+      }
+
       const errorMessage =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||

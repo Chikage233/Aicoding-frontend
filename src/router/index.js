@@ -13,6 +13,7 @@ import ProblemManagement from '@/components/ProblemManagement.vue'
 import NicknameReviewManagement from '@/components/NicknameReviewManagement.vue'
 import AIChat from '@/components/AIChat.vue'
 import AIJudge from '@/components/AIJudge.vue'
+import PersonalizedExercisesPage from '@/components/PersonalizedExercisesPage.vue'
 
 const routes = [
   {
@@ -67,6 +68,11 @@ const routes = [
     path: '/profile',
     name: 'ProfilePage',
     component: ProfilePage
+  },
+  {
+    path: '/personalized-exercises',
+    name: 'PersonalizedExercisesPage',
+    component: PersonalizedExercisesPage
   },
   {
     path: '/leetcode/problems/:problemId/',

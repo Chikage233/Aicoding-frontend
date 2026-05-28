@@ -178,6 +178,15 @@ function goRegister() {
   router.push('/register')
 }
 
+function clearLocalAuthState() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('jwt_token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('is_admin')
+  localStorage.removeItem('user_info')
+}
+
 function normalizeCaptchaImage(rawImage) {
   if (!rawImage || typeof rawImage !== 'string') return ''
 
@@ -217,7 +226,10 @@ async function fetchCaptcha(options = {}) {
   captchaLoading.value = true
 
   try {
-    const res = await request.get('/api/auth/captcha/')
+    const res = await request.get('/api/auth/captcha/', {
+      skipAuthTokenInjection: true,
+      skipGlobalErrorHandler: true
+    })
     const data = extractCaptchaPayload(res)
     if (!data.id || !data.image) {
       throw new Error('验证码响应格式异常')
@@ -258,12 +270,19 @@ async function onLogin() {
     loading.value = true
 
     try {
-      const res = await request.post('/api/auth/jwt/login/', {
-        username: form.username,
-        password: form.password,
-        captcha_id: captcha.id,
-        captcha_code: form.captcha_code.trim()
-      })
+      const res = await request.post(
+        '/api/auth/jwt/login/',
+        {
+          username: form.username,
+          password: form.password,
+          captcha_id: captcha.id,
+          captcha_code: form.captcha_code.trim()
+        },
+        {
+          skipAuthTokenInjection: true,
+          skipGlobalErrorHandler: true
+        }
+      )
 
       const authData = unwrapResponse(res) || {}
       const access = authData.access
@@ -319,6 +338,7 @@ async function onLogin() {
 }
 
 onMounted(() => {
+  clearLocalAuthState()
   fetchCaptcha({ silent: true })
 })
 </script>

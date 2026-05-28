@@ -10,18 +10,24 @@
     </nav>
 
     <div class="main-content">
-      <h1>个人中心</h1>
+      <section class="page-intro">
+        <div>
+          <p class="page-eyebrow">个人工作台</p>
+          <h1>个人中心</h1>
+          <p class="page-subtitle">把常用操作放在手边，让资料维护更轻松。</p>
+        </div>
+      </section>
 
-      <div class="profile-container">
-        <div class="profile-header">
-          <div class="avatar-section">
+      <div v-if="profileLoading" class="profile-loading-card">正在加载个人资料...</div>
+
+      <div v-else class="profile-layout">
+        <aside class="profile-sidebar">
+          <section class="summary-card">
             <img :src="displayAvatar" alt="头像" class="avatar-large" />
-          </div>
-
-          <div class="user-info">
             <h2>{{ user.displayName || user.username || '暂无用户名' }}</h2>
-            <p v-if="nicknameStatusTag">
-              <strong>昵称审核:</strong>
+            <p class="summary-contact">{{ user.email && user.email !== '-' ? user.email : user.phone || '暂无联系方式' }}</p>
+
+            <p v-if="nicknameStatusTag" class="summary-status">
               <span class="nickname-status-badge" :class="`nickname-status-${nicknameStatusTag.type}`">
                 {{ nicknameStatusTag.text }}
               </span>
@@ -29,16 +35,55 @@
                 {{ user.nicknameRejectReason }}
               </span>
             </p>
-            <p v-if="user.email"><strong>邮箱:</strong>{{ user.email }}</p>
-            <p v-else-if="user.phone"><strong>手机:</strong>{{ user.phone }}</p>
-            <p><strong>注册时间:</strong>{{ user.registerDate || '未知' }}</p>
-            <p>{{ user.bio || '暂无个人简介' }}</p>
-          </div>
-        </div>
 
-        <div class="profile-details">
-          <div class="info-section">
+            <p class="header-bio">{{ user.bio || '暂无个人简介' }}</p>
+
+            <div class="completeness">
+              <div class="completeness-meta">
+                <span>资料完整度</span>
+                <strong>{{ profileCompleteness }}%</strong>
+              </div>
+              <div class="completeness-track" aria-hidden="true">
+                <span class="completeness-fill" :style="{ width: `${profileCompleteness}%` }"></span>
+              </div>
+            </div>
+
+            <div class="user-tags">
+              <span class="user-tag">账号：{{ user.username || '-' }}</span>
+              <span class="user-tag">{{ contactStatusText }}</span>
+            </div>
+
+            <div class="sidebar-actions">
+              <button type="button" class="profile-action-btn light" @click="goPersonalizedExercises">
+                个性化习题
+              </button>
+              <button type="button" class="profile-action-btn light" @click="goToAIChat">
+                AI 助手
+              </button>
+            </div>
+          </section>
+
+          <section class="overview-card">
+            <h3>账号概览</h3>
+            <div class="overview-item">
+              <span>注册时间</span>
+              <strong>{{ user.registerDate || '未知' }}</strong>
+            </div>
+            <div class="overview-item">
+              <span>邮箱</span>
+              <strong>{{ user.email || '未设置邮箱' }}</strong>
+            </div>
+            <div class="overview-item">
+              <span>手机号</span>
+              <strong>{{ user.phone || '未设置手机号' }}</strong>
+            </div>
+          </section>
+        </aside>
+
+        <div class="profile-main">
+          <section class="panel-card">
             <h3>个人信息</h3>
+            <p class="section-hint">更新昵称、头像及个人资料，保存后即时生效。</p>
 
             <div class="info-item">
               <div class="info-label">昵称:</div>
@@ -128,18 +173,21 @@
             </div>
 
             <div class="action-row">
-              <button v-if="!isEditing" class="profile-action-btn" @click="startEdit">编辑资料</button>
+              <button v-if="!isEditing" type="button" class="profile-action-btn" @click="startEdit">
+                编辑资料
+              </button>
               <template v-else>
-                <button class="profile-action-btn secondary" @click="cancelEdit">取消</button>
-                <button class="profile-action-btn" :disabled="saving" @click="saveProfile">
-                  {{ saving ? '保存中...' : '保存' }}
+                <button type="button" class="profile-action-btn secondary" @click="cancelEdit">取消</button>
+                <button type="button" class="profile-action-btn" :disabled="saving || !isEditDirty" @click="saveProfile">
+                  {{ saving ? '保存中...' : isEditDirty ? '保存' : '无变更' }}
                 </button>
               </template>
             </div>
-          </div>
+          </section>
 
-          <div class="security-section">
+          <section class="panel-card">
             <h3>账户安全</h3>
+            <p class="section-hint">以下信息用于登录与通知，请保持可用。</p>
             <div class="info-item">
               <div class="info-label">注册邮箱:</div>
               <div class="info-value">{{ user.email || '未设置邮箱' }}</div>
@@ -152,7 +200,7 @@
               <div class="info-label">密码:</div>
               <div class="info-value">••••••••</div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>
@@ -208,7 +256,8 @@ export default {
         birthday: '',
         gender: '',
         bio: ''
-      }
+      },
+      profileLoading: false
     }
   },
   computed: {
@@ -221,6 +270,51 @@ export default {
     displayAvatar() {
       const candidate = this.isEditing ? this.editForm.avatar : this.user.avatar
       return this.normalizeAvatar(candidate) || DEFAULT_AVATAR
+    },
+    contactStatusText() {
+      const email = String(this.user.email || '').trim()
+      const phone = String(this.user.phone || '').trim()
+      if (email && email !== '-') return '邮箱已绑定'
+      if (phone && phone !== '-') return '手机已绑定'
+      return '未绑定联系方式'
+    },
+    profileCompleteness() {
+      const checks = [
+        Boolean(this.normalizeNickname(this.user.nickname) && this.user.nickname !== '-'),
+        Boolean(this.normalizeAvatar(this.user.avatar)),
+        Boolean(this.normalizeBirthday(this.user.birthday)),
+        Boolean(this.normalizeGender(this.user.gender)),
+        Boolean(this.user.bio && this.user.bio !== '-' && this.user.bio !== '暂无个人简介'),
+        Boolean(
+          (this.user.email && this.user.email !== '-') || (this.user.phone && this.user.phone !== '-')
+        )
+      ]
+      const filled = checks.filter(Boolean).length
+      return Math.round((filled / checks.length) * 100)
+    },
+    isEditDirty() {
+      const nicknameCurrent = this.normalizeNickname(this.user.nickname === '-' ? '' : this.user.nickname)
+      const birthdayCurrent = this.normalizeBirthday(this.user.birthday)
+      const genderCurrent = this.normalizeGender(this.user.gender)
+      const bioCurrent =
+        this.user.bio && this.user.bio !== '-' && this.user.bio !== '暂无个人简介'
+          ? String(this.user.bio).trim()
+          : ''
+      const avatarCurrent = this.normalizeAvatar(this.user.avatar)
+
+      const nicknameNext = this.normalizeNickname(this.editForm.nickname)
+      const birthdayNext = this.normalizeBirthday(this.editForm.birthday)
+      const genderNext = this.normalizeGender(this.editForm.gender)
+      const bioNext = String(this.editForm.bio || '').trim()
+      const avatarNext = this.normalizeAvatar(this.editForm.avatar)
+
+      return (
+        nicknameCurrent !== nicknameNext ||
+        birthdayCurrent !== birthdayNext ||
+        genderCurrent !== genderNext ||
+        bioCurrent !== bioNext ||
+        avatarCurrent !== avatarNext
+      )
     }
   },
   methods: {
@@ -537,7 +631,7 @@ export default {
         }
 
         await request.patch('/api/auth/jwt/me/', payload)
-        await this.fetchUserInfo()
+        await this.fetchUserInfo(false)
 
         this.isEditing = false
         const status = this.normalizeNicknameStatus(this.user.nicknameStatus)
@@ -565,7 +659,8 @@ export default {
       }
     },
 
-    async fetchUserInfo() {
+    async fetchUserInfo(showLoading = false) {
+      if (showLoading) this.profileLoading = true
       try {
         const res = await request.get('/api/auth/jwt/me/')
         const root = this.unwrapData(res) || {}
@@ -644,7 +739,17 @@ export default {
           registerDate: '-'
         }
         this.fillEditForm()
+      } finally {
+        if (showLoading) this.profileLoading = false
       }
+    },
+
+    goPersonalizedExercises() {
+      this.$router.push('/personalized-exercises')
+    },
+
+    goToAIChat() {
+      this.$router.push('/ai-chat')
     },
 
     goBack() {
@@ -652,34 +757,55 @@ export default {
     }
   },
   mounted() {
-    this.fetchUserInfo()
+    this.fetchUserInfo(true)
   }
 }
 </script>
 
 <style scoped>
 .profile-page {
+  --bg-base: #f4f1ea;
+  --bg-soft: #f9f7f3;
+  --card: #fffdf9;
+  --card-soft: #f7f4ee;
+  --text-strong: #2f3a32;
+  --text-main: #465248;
+  --text-muted: #768475;
+  --line: #ddd9cf;
+  --line-soft: #e8e3d9;
+  --accent: #6f8b6f;
+  --accent-deep: #5d745d;
+  --accent-soft: #edf4ec;
+  --danger-text: #9c3f36;
+  --danger-bg: #fbe9e7;
+  --danger-line: #e8c0ba;
+
   min-height: 100vh;
   width: 100%;
-  background: #fff;
+  background:
+    radial-gradient(circle at 8% 0%, #e8f0e7 0, transparent 36%),
+    radial-gradient(circle at 90% 10%, #f5ebe0 0, transparent 28%),
+    var(--bg-base);
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  font-family: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', sans-serif;
 }
 
 .navbar {
-  flex-shrink: 0;
-  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
+  padding: 0 24px;
   height: 64px;
-  background: #222;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 253, 249, 0.92);
+  border-bottom: 1px solid var(--line-soft);
+  backdrop-filter: blur(8px);
 }
 
 .navbar-left,
@@ -689,71 +815,240 @@ export default {
 }
 
 .system-name {
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: 0.01em;
 }
 
 .back-button {
-  background: transparent;
   border: none;
-  color: #fff;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border: 1px solid #d4e0d1;
   cursor: pointer;
-  font-size: 16px;
-  transition: color 0.2s;
+  font-size: 14px;
+  transition: all 0.2s ease;
 }
 
 .back-button:hover {
-  color: #409eff;
+  background: #e3eee1;
 }
 
 .main-content {
-  flex: 1 1 auto;
+  max-width: 1220px;
   width: 100%;
-  padding: 32px;
-  box-sizing: border-box;
-  background: #fff;
-  overflow: auto;
-}
-
-.profile-container {
-  max-width: 860px;
   margin: 0 auto;
-  background: #fff;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  padding: 24px 18px 34px;
+  box-sizing: border-box;
 }
 
-.profile-header {
+.page-intro {
+  background: linear-gradient(130deg, #fdfbf7, #f6f1e8);
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  box-shadow: 0 10px 26px rgba(64, 55, 42, 0.08);
+  padding: 24px 24px 22px;
+  margin-bottom: 16px;
+}
+
+.page-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #7e8f7e;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page-intro h1 {
+  margin: 0;
+  font-size: 30px;
+  color: var(--text-strong);
+}
+
+.page-subtitle {
+  margin: 10px 0 0;
+  color: var(--text-main);
+  font-size: 15px;
+}
+
+.profile-loading-card {
+  background: var(--card);
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(64, 55, 42, 0.08);
+  text-align: center;
+  padding: 48px 20px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.profile-sidebar {
   display: flex;
-  align-items: center;
-  padding-bottom: 24px;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 24px;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.avatar-section {
-  margin-right: 24px;
+.summary-card,
+.overview-card,
+.panel-card {
+  background: var(--card);
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(64, 55, 42, 0.08);
+}
+
+.summary-card {
+  padding: 20px 18px;
+  text-align: center;
 }
 
 .avatar-large {
-  width: 100px;
-  height: 100px;
+  width: 98px;
+  height: 98px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #ddd;
+  border: 3px solid #dbe3d8;
+  box-shadow: 0 10px 22px rgba(64, 55, 42, 0.16);
 }
 
-.user-info h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  color: #303133;
+.summary-card h2 {
+  margin: 12px 0 0;
+  font-size: 23px;
+  color: var(--text-strong);
+  font-weight: 700;
 }
 
-.user-info p {
-  margin: 4px 0;
-  color: #606266;
+.summary-contact {
+  margin: 7px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.summary-status {
+  margin: 12px 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-bio {
+  margin: 12px 0 0;
+  color: var(--text-main);
+  font-size: 14px;
   line-height: 1.6;
+  text-align: left;
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.completeness {
+  margin-top: 14px;
+  text-align: left;
+}
+
+.completeness-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.completeness-meta strong {
+  color: var(--accent-deep);
+  font-size: 15px;
+}
+
+.completeness-track {
+  margin-top: 8px;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: #e8e4da;
+  overflow: hidden;
+}
+
+.completeness-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7f977c, #96ab91);
+}
+
+.user-tags {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #5d6a5d;
+  background: var(--accent-soft);
+  border: 1px solid #d4e0d1;
+}
+
+.sidebar-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.overview-card {
+  padding: 16px 16px 8px;
+}
+
+.overview-card h3 {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-size: 17px;
+}
+
+.overview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.overview-item:first-of-type {
+  border-top: none;
+}
+
+.overview-item span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.overview-item strong {
+  font-size: 14px;
+  color: var(--text-main);
+  font-weight: 600;
 }
 
 .nickname-status-badge {
@@ -769,57 +1064,66 @@ export default {
 }
 
 .nickname-status-pending {
-  color: #8a5a00;
-  background: #fff3cd;
-  border: 1px solid #f8d57e;
+  color: #8e6a2e;
+  background: #f6edd6;
+  border: 1px solid #e7d2a3;
 }
 
 .nickname-status-rejected {
-  color: #b42318;
-  background: #fee4e2;
-  border: 1px solid #fda29b;
+  color: var(--danger-text);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-line);
 }
 
 .nickname-reject-reason {
-  margin-left: 8px;
-  color: #b42318;
+  color: var(--danger-text);
+  font-size: 12px;
 }
 
-.profile-details {
-  display: flex;
-  gap: 40px;
+.profile-main {
+  display: grid;
+  gap: 16px;
 }
 
-.info-section,
-.security-section {
-  flex: 1;
+.panel-card {
+  padding: 18px;
 }
 
-.info-section h3,
-.security-section h3 {
-  margin: 0 0 20px 0;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #eee;
-  color: #303133;
+.panel-card h3 {
+  margin: 0;
+  color: var(--text-strong);
   font-size: 18px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.section-hint {
+  margin: 10px 0 2px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .info-item {
   display: flex;
   margin-bottom: 16px;
-  padding: 8px 0;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line-soft);
+}
+
+.info-item:last-of-type {
+  border-bottom: none;
 }
 
 .info-label {
   width: 100px;
-  color: #909399;
+  color: var(--text-muted);
   font-size: 14px;
   font-weight: 500;
 }
 
 .info-value {
   flex: 1;
-  color: #303133;
+  color: var(--text-main);
   font-size: 14px;
   word-break: break-word;
 }
@@ -832,17 +1136,23 @@ export default {
 .field-input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 11px;
   font-size: 14px;
-  color: #303133;
-  background: #fff;
+  color: var(--text-main);
+  background: #fffcf8;
+  outline: none;
+}
+
+.field-input:focus {
+  border-color: #9aad98;
+  box-shadow: 0 0 0 3px rgba(143, 163, 140, 0.22);
 }
 
 .nickname-audit-tip {
   margin-top: 6px;
-  color: #909399;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -862,9 +1172,9 @@ export default {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 2px solid #dcdfe6;
+  border: 2px solid var(--line);
   padding: 0;
-  background: #fff;
+  background: #fffcf8;
   cursor: pointer;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -877,38 +1187,45 @@ export default {
 }
 
 .avatar-preset-btn:hover {
-  border-color: #409eff;
+  border-color: #8ea588;
 }
 
 .avatar-preset-btn.active {
-  border-color: #409eff;
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(111, 139, 111, 0.2);
 }
 
 .avatar-presets-state {
-  color: #909399;
+  color: var(--text-muted);
 }
 
 .avatar-presets-tip {
   margin-top: 8px;
-  color: #909399;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
 .action-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 .profile-action-btn {
   border: none;
-  background: #409eff;
+  background: linear-gradient(120deg, var(--accent-deep), var(--accent));
   color: #fff;
-  padding: 8px 14px;
-  border-radius: 6px;
+  padding: 9px 16px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 14px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 8px 18px rgba(74, 93, 74, 0.22);
+}
+
+.profile-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .profile-action-btn:disabled {
@@ -917,13 +1234,41 @@ export default {
 }
 
 .profile-action-btn.secondary {
-  background: #909399;
+  background: #b3b2aa;
+  box-shadow: none;
+}
+
+.profile-action-btn.light {
+  background: #f2ede4;
+  color: #596858;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.profile-action-btn.light:hover:not(:disabled) {
+  background: #ebe4d7;
+  transform: none;
 }
 
 @media (max-width: 860px) {
-  .profile-details {
-    flex-direction: column;
-    gap: 24px;
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-sidebar {
+    order: 2;
+  }
+
+  .profile-main {
+    order: 1;
+  }
+
+  .summary-card {
+    text-align: left;
+  }
+
+  .summary-status {
+    justify-content: flex-start;
   }
 
   .info-item {
@@ -933,6 +1278,31 @@ export default {
 
   .info-label {
     width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 14px;
+  }
+
+  .system-name {
+    font-size: 17px;
+  }
+
+  .main-content {
+    padding: 14px 10px 20px;
+  }
+
+  .page-intro h1 {
+    font-size: 24px;
+  }
+
+  .profile-action-btn,
+  .profile-action-btn.light {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
   }
 }
 </style>
